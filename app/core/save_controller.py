@@ -75,12 +75,14 @@ class SaveController:
     def _on_file_modified(self, filepath: str):
         """Trigger: The FileWatcher detected a change on disk."""
         # Only reload if we actually have a slot selected
+        from PySide6.QtCore import QTimer
         state = self.store.state
         if state.current_slot is None:
             return
 
         print(f"Auto-reload triggered for: {filepath}")
-        self._reload_with_retry(filepath, state.current_slot)
+        QTimer.singleShot(0, lambda: self._reload_with_retry(filepath, state.current_slot)) # type: ignore
+        
 
     def _reload_with_retry(self, path: str, slot: int, retries=5):
         """Internal: Elden Ring often locks the file while writing."""

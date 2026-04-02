@@ -65,8 +65,9 @@ class ParserAdapter:
                 self._current_filepath = filepath
 
             self._update_data(filepath, character_slot, False)
-            contents = self._get_ptr_func().contents
-            return CharacterData(contents)
+            ptr = self._get_ptr_func()
+            snapshot = CCharacterData.from_buffer_copy(ptr.contents)
+            return CharacterData(snapshot)
 
 
 

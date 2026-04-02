@@ -10,10 +10,11 @@ from app.data.consts import DLC, OFFSET, REMEMBRANCE, LINK, QT_GREEN, QT_RED, QT
 from app.core.app_state import AppStore, AppState
 from app.util.utils import make_combo_widget
 from app.util.animation import flash_item
+from .observer_tab import BaseObserverTab
 
-class BossWindow(QWidget):
+class BossWindow(BaseObserverTab):
     def __init__(self, connection: Connection, store: AppStore):
-        super().__init__()
+        super().__init__(store)
         self.connection = connection
         self.has_dlc = True
         self.setWindowTitle("Boss Tracker")
@@ -83,8 +84,6 @@ class BossWindow(QWidget):
         # Resize columns
         self.tree.resizeColumnToContents(0)
 
-        store.state_changed.connect(self.on_state_updated)
-
     def populate_model(self):
         root_item = self.base_model.invisibleRootItem()
         region_items = {}
@@ -132,7 +131,8 @@ class BossWindow(QWidget):
     def update_with(self, data: CharacterData, state: AppState):
         self.has_dlc = data.has_dlc()
         root_item = self.base_model.invisibleRootItem()
-        self.base_model.layoutAboutToBeChanged.emit()
+
+        self.base_model.blockSignals(True)
         tree_changed = False
         is_startup = state.time_since_start() < 1.0
 
@@ -181,22 +181,20 @@ class BossWindow(QWidget):
                     flash_item(self.base_model, region_index, QT_GREEN)
                 elif region_boss_removed:
                     flash_item(self.base_model, region_index, QT_RED)
+
+        self.base_model.blockSignals(False)
+        self.tree.viewport().update()
+        
+        if tree_changed:
+            self.proxy_model.invalidate()
         
         if not tree_changed and state.time_since_last_save() > 5.0:
             self.bottom_text_bar.setText("")
-        self.base_model.layoutChanged.emit()
 
     def update_search_box(self, text):
         if len(text) > 5:
             self.tree.expandAll()
         self.proxy_model.set_search_text(text)
-
-    def on_state_updated(self, state: AppState):
-        if state.is_loading:
-            return
-        
-        if state.current_character:
-            self.update_with(state.current_character, state)
 
     def on_context_menu(self, point):
         proxy_index = self.tree.indexAt(point)
@@ -230,6 +228,12 @@ class BossWindow(QWidget):
             menu.addAction(action)
         
         menu.exec(self.tree.viewport().mapToGlobal(point))
+
+    def sync_ui_data(self, state: AppState):
+        """This only runs when visible or upon opening."""
+        # This is your existing update_with logic
+        if state.current_character:
+            self.update_with(state.current_character, state)
 
 
 

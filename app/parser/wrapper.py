@@ -1,3 +1,5 @@
+from threading import RLock
+
 from .models import *
 
 class CharacterSelection:
@@ -295,6 +297,7 @@ class InventoryItem:
 class CharacterData:
     def __init__(self, c_struct: CCharacterData):
         self._struct = c_struct
+        self._flags = bytes(c_struct.eventFlags)
         self._character_selections = {}
         self._player = None
         self._header = None
@@ -360,7 +363,7 @@ class CharacterData:
         return [self.get_character_info(i) for i in range(10)]
     
     def get_flag(self, bit_offset) -> bool:
-        byte = self._struct.eventFlags[bit_offset // 8]
+        byte = self._flags[bit_offset // 8]
         bit = bit_offset % 8
         bit_mask = 1 << bit
         return bit_mask & byte != 0
