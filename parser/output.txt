@@ -1,0 +1,566 @@
+﻿--- D:\Python\save_parser\src\parser\models.py ---
+import ctypes
+
+# A base class to ensure all our structs use 1-byte packing,
+# which is the equivalent of '#pragma pack(1)' in C.
+class PackedStructure(ctypes.Structure):
+    _pack_ = 1
+
+class CCharacterSelection(PackedStructure):
+    _fields_ = [
+        ("characterName", ctypes.c_wchar * 16),
+        ("level", ctypes.c_uint)
+    ]
+
+class CCharHeader(PackedStructure):
+    _fields_ = [
+        ("checksum", ctypes.c_char * 16),
+        ("version", ctypes.c_int)
+    ]
+
+class CGaItemEntry(PackedStructure):
+    _fields_ = [
+        ("gaHandle", ctypes.c_uint),
+        ("itemId", ctypes.c_uint),
+        ("aowId", ctypes.c_uint)
+    ]
+
+class CPlayer(PackedStructure):
+    _fields_ = [
+        ("health", ctypes.c_uint),
+        ("maxHealth", ctypes.c_uint),
+        ("baseMaxHealth", ctypes.c_uint),
+        ("FP", ctypes.c_uint),
+        ("maxFP", ctypes.c_uint),
+        ("baseMaxFP", ctypes.c_uint),
+        ("SP", ctypes.c_uint),
+        ("maxSP", ctypes.c_uint),
+        ("baseMaxSP", ctypes.c_uint),
+        ("vigor", ctypes.c_uint),
+        ("mind", ctypes.c_uint),
+        ("endurance", ctypes.c_uint),
+        ("strength", ctypes.c_uint),
+        ("dexterity", ctypes.c_uint),
+        ("intelligence", ctypes.c_uint),
+        ("faith", ctypes.c_uint),
+        ("arcane", ctypes.c_uint),
+        ("humanity", ctypes.c_uint),
+        ("level", ctypes.c_uint),
+        ("souls", ctypes.c_uint),
+        ("soulMemory", ctypes.c_uint),
+        ("characterType", ctypes.c_uint),
+        ("characterName", ctypes.c_wchar * 16),
+        ("gender", ctypes.c_ubyte),
+        ("archeType", ctypes.c_ubyte),
+        ("voiceType", ctypes.c_ubyte),
+        ("gift", ctypes.c_ubyte),
+        ("additionalTalismanSlotsCount", ctypes.c_ubyte),
+        ("summonSpiritLevel", ctypes.c_ubyte),
+        ("furlCallingFingerOn", ctypes.c_ubyte),
+        ("matchmakingWeaponLevel", ctypes.c_ubyte),
+        ("greatRuneOn", ctypes.c_ubyte),
+        ("maxCrimsonFlaskCount", ctypes.c_ubyte),
+        ("maxCeruleanFlaskCount", ctypes.c_ubyte),
+        ("padding", ctypes.c_ubyte * 29)
+    ]
+
+class CEquippedItemsGaHandles(PackedStructure):
+    _fields_ = [
+        ("leftHand1", ctypes.c_uint),
+        ("rightHand1", ctypes.c_uint),
+        ("leftHand2", ctypes.c_uint),
+        ("rightHand2", ctypes.c_uint),
+        ("leftHand3", ctypes.c_uint),
+        ("rightHand3", ctypes.c_uint),
+        ("arrows1", ctypes.c_uint),
+        ("bolts1", ctypes.c_uint),
+        ("arrows2", ctypes.c_uint),
+        ("bolts2", ctypes.c_uint),
+        ("head", ctypes.c_uint),
+        ("chest", ctypes.c_uint),
+        ("arms", ctypes.c_uint),
+        ("legs", ctypes.c_uint),
+        ("talisman1", ctypes.c_uint),
+        ("talisman2", ctypes.c_uint),
+        ("talisman3", ctypes.c_uint),
+        ("talisman4", ctypes.c_uint)
+
+    ]
+
+class CInventoryHeld(PackedStructure):
+    _fields_ = [
+        ("itemId", ctypes.c_uint),
+        ("quantity", ctypes.c_uint)
+    ]
+
+class CCharacterData(PackedStructure):
+    _fields_ = [
+        ("characterSelection", CCharacterSelection * 10),
+        ("characterHeader", CCharHeader),
+        ("gaItemCount", ctypes.c_uint),
+        ("gaItems", CGaItemEntry * 5120),
+        ("player", CPlayer),
+        ("equippedItemsGaHandles", CEquippedItemsGaHandles),
+        ("commonItemInventoryCount", ctypes.c_uint),
+        ("commonItemsInventory", CInventoryHeld * 2688),
+        ("keyItemInventoryCount", ctypes.c_uint),
+        ("keyItemsInventory", CInventoryHeld * 384),
+        ("commonItemStorageCount", ctypes.c_uint),
+        ("commonItemsStorage", CInventoryHeld * 1920),
+        ("keyItemStorageCount", ctypes.c_uint),
+        ("keyItemsStorage", CInventoryHeld * 128),
+        ("allItemsCount", ctypes.c_uint),
+        ("allItems", ctypes.c_uint * 7000),
+        ("totalDeathsCount", ctypes.c_uint),
+        ("eventFlags", ctypes.c_ubyte * 1833375),
+        ("dlc", ctypes.c_ushort)
+    ]
+
+
+
+--- D:\Python\save_parser\src\parser\parser.py ---
+import ctypes
+import os
+
+from .models import CCharacterData
+from .wrapper import CharacterData, CharacterSelection
+
+_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "parser.dll")
+try:
+    _parser_lib = ctypes.CDLL(_DLL_PATH)
+except OSError as e:
+    raise ImportError(f"Could not load the C parser library at '{_DLL_PATH}'. Please ensure it is compiled and in the correct location. Error: {e}")
+
+_update_data_func = _parser_lib.update_character_data
+_update_data_func.argtypes = [ctypes.c_char_p, ctypes.c_int]
+_update_data_func.restype = ctypes.c_int
+
+_get_ptr_func = _parser_lib.get_character_data_ptr
+_get_ptr_func.restype = ctypes.POINTER(CCharacterData)
+
+_invalidate_headers_func = _parser_lib.invalidate_headers
+_invalidate_headers_func.restype = None
+
+INITIALIZED_HEADERS = False
+INITIALIZED = False
+
+def update_data(filepath: str, character_slot: int, header_mode: bool) -> int:
+    header_mode = 1 if header_mode else 0
+    global INITIALIZED, INITIALIZED_HEADERS
+    result = _update_data_func(filepath.encode(encoding="utf-8"), character_slot, header_mode)
+    if result == 1:
+        INITIALIZED_HEADERS = True
+    elif result == 0:
+        INITIALIZED_HEADERS = True
+        INITIALIZED = True
+    return result
+    
+
+def get_data() -> CharacterData:
+    if INITIALIZED:
+        return CharacterData(_get_ptr_func().contents)
+    raise MemoryError("Data is not initialized")
+
+def get_headers() -> list[CharacterSelection]:
+    if INITIALIZED_HEADERS:
+        return [CharacterSelection(_get_ptr_func().contents.characterSelection[i]) for i in range(10)]
+    raise MemoryError("Headers are not initialized")
+
+def invalidate() -> None:
+    _invalidate_headers_func()
+
+
+
+--- D:\Python\save_parser\src\parser\wrapper.py ---
+from .models import *
+
+class CharacterSelection:
+    def __init__(self, c_struct: CCharacterSelection):
+        self._struct = c_struct
+
+    @property
+    def name(self) -> str:
+        return self._struct.characterName
+    
+    @property
+    def level(self) -> int:
+        return self._struct.level
+    
+    def __str__(self) -> str:
+        return f"{self.name} - SL{self.level}"
+    
+class CharacterHeader:
+    def __init__(self, c_struct: CCharHeader):
+        self._struct = c_struct
+
+    @property
+    def checksum(self) -> bytes:
+        return self._struct.checksum
+    
+    @property
+    def version(self) -> int:
+        return self._struct.version
+    
+    def __str__(self) -> str:
+        return f"Version: {self.version}. Checksum - {self.checksum.hex()}"
+    
+class GaItemEntry:
+    def __init__(self, c_struct: CGaItemEntry):
+        self._struct = c_struct
+
+    @property
+    def ga_handle(self) -> int:
+        return self._struct.gaHandle
+    
+    @property
+    def item_id(self) -> int:
+        return self._struct.itemId
+    
+    @property
+    def ashes_id(self) -> int:
+        return self._struct.aowId
+    
+    def __str__(self) -> str:
+        return f"GA: {hex(self.ga_handle)}, ID: {hex(self.item_id)}{f', Ashes ID: {hex(self.ashes_id)}' if self.ashes_id else ''}"
+    
+class Player:
+    def __init__(self, c_struct: CPlayer):
+        self._struct = c_struct
+
+    @property
+    def health(self) -> int:
+        return self._struct.health
+    
+    @property
+    def max_health(self) -> int:
+        return self._struct.maxHealth
+    
+    @property
+    def base_max_health(self) -> int:
+        return self._struct.baseMaxHealth
+    
+    @property
+    def fp(self) -> int:
+        return self._struct.FP
+    
+    @property
+    def max_fp(self) -> int:
+        return self._struct.maxFP
+    
+    @property
+    def base_max_fp(self) -> int:
+        return self._struct.baseMaxFP
+    
+    @property
+    def sp(self) -> int:
+        return self._struct.SP
+    
+    @property
+    def max_sp(self) -> int:
+        return self._struct.maxSP
+    
+    @property
+    def base_max_sp(self) -> int:
+        return self._struct.baseMaxSP
+    
+    @property
+    def vigor(self) -> int:
+        return self._struct.vigor
+    
+    @property
+    def mind(self) -> int:
+        return self._struct.mind
+    
+    @property
+    def endurance(self) -> int:
+        return self._struct.endurance
+    
+    @property
+    def strength(self) -> int:
+        return self._struct.strength
+    
+    @property
+    def dexterity(self) -> int:
+        return self._struct.dexterity
+    
+    @property
+    def intelligence(self) -> int:
+        return self._struct.intelligence
+    
+    @property
+    def faith(self) -> int:
+        return self._struct.faith
+    
+    @property
+    def arcane(self) -> int:
+        return self._struct.arcane
+    
+    @property
+    def humanity(self) -> int:
+        return self._struct.humanity
+    
+    @property
+    def level(self) -> int:
+        return self._struct.level
+    
+    @property
+    def souls(self) -> int:
+        return self._struct.souls
+    
+    @property
+    def soul_memory(self) -> int:
+        return self._struct.soulMemory
+    
+    @property
+    def character_type(self) -> int:
+        return self._struct.characterType
+    
+    @property
+    def character_name(self) -> str:
+        return self._struct.characterName
+    
+    @property
+    def gender(self) -> int:
+        return int(self._struct.gender)
+    
+    @property
+    def arche_type(self) -> int:
+        return int(self._struct.archeType)
+    
+    @property
+    def voice_type(self) -> int:
+        return int(self._struct.voiceType)
+    
+    @property
+    def gift(self) -> int:
+        return int(self._struct.gift)
+    
+    @property
+    def talisman_slots(self) -> int:
+        return int(self._struct.additionalTalismanSlotsCount) + 1
+    
+    @property
+    def summon_spirit_level(self) -> int:
+        return int(self._struct.summonSpiritLevel)
+    
+    @property
+    def matchmaking_weapon_level(self) -> int:
+        return int(self._struct.matchmakingWeaponLevel)
+    
+    @property
+    def max_crimson_flask_count(self) -> int:
+        return int(self._struct.maxCrimsonFlaskCount)
+    
+    @property
+    def max_cerulean_flask_count(self) -> int:
+        return int(self._struct.maxCeruleanFlaskCount)
+    
+    
+    def furl_calling_finger_on(self) -> bool:
+        return self._struct.furlCallingFingerOn != 0
+    
+    def great_rune_on(self) -> bool:
+        return self._struct.greatRuneOn != 0
+    
+class EquippedItemHandles:
+    def __init__(self, c_struct: CEquippedItemsGaHandles):
+        self._struct = c_struct
+
+    @property
+    def lefthand1(self) -> int:
+        return self._struct.leftHand1
+    
+    @property
+    def lefthand2(self) -> int:
+        return self._struct.leftHand2
+    
+    @property
+    def lefthand3(self) -> int:
+        return self._struct.leftHand3
+    
+    @property
+    def righthand1(self) -> int:
+        return self._struct.rightHand1
+    
+    @property
+    def righthand2(self) -> int:
+        return self._struct.rightHand2
+    
+    @property
+    def righthand3(self) -> int:
+        return self._struct.rightHand3
+    
+    @property
+    def arrows1(self) -> int:
+        return self._struct.arrows1
+    
+    @property
+    def arrows2(self) -> int:
+        return self._struct.arrows2
+    
+    @property
+    def bolts1(self) -> int:
+        return self._struct.bolts1
+    
+    @property
+    def bolts2(self) -> int:
+        return self._struct.bolts2
+    
+    @property
+    def head(self) -> int:
+        return self._struct.head
+    
+    @property
+    def chest(self) -> int:
+        return self._struct.chest
+    
+    @property
+    def arms(self) -> int:
+        return self._struct.arms
+    
+    @property
+    def legs(self) -> int:
+        return self._struct.legs
+    
+    @property
+    def talisman1(self) -> int:
+        return self._struct.talisman1
+    
+    @property
+    def talisman2(self) -> int:
+        return self._struct.talisman2
+    
+    @property
+    def talisman3(self) -> int:
+        return self._struct.talisman3
+    
+    @property
+    def talisman4(self) -> int:
+        return self._struct.talisman4
+    
+    @property
+    def weapons(self) -> list[int]:
+        return [self.righthand1, self.righthand2, self.righthand3, self.lefthand1, self.lefthand2, self.lefthand3]
+    
+    @property
+    def projectiles(self) -> list[int]:
+        return [self.arrows1, self.arrows2, self.bolts1, self.bolts2]
+    
+    @property
+    def armor(self) -> list[int]:
+        return [self.head, self.chest, self.arms, self.legs]
+    
+    @property
+    def talismans(self) -> list[int]:
+        return [self.talisman1, self.talisman2, self.talisman3, self.talisman4]
+    
+class InventoryItem:
+    def __init__(self, c_struct: CInventoryHeld):
+        self._struct = c_struct
+
+    @property
+    def item_id(self) -> int:
+        return self._struct.itemId
+    
+    @property
+    def quantity(self) -> int:
+        return self._struct.quantity
+    
+class CharacterData:
+    def __init__(self, c_struct: CCharacterData):
+        self._struct = c_struct
+        self._character_selections = {}
+        self._player = None
+        self._header = None
+        self._ga_items_dict = None
+        self._equipped_ga_handles = None
+        self._item_set = set()
+
+
+    @property
+    def header(self) -> CharacterHeader:
+        if not self._header:
+            self._header = CharacterHeader(self._struct.characterHeader)
+        return self._header
+    
+    @property
+    def ga_item_count(self) -> int:
+        return self._struct.gaItemCount
+    
+    @property
+    def player(self) -> Player:
+        if not self._player:
+            self._player = Player(self._struct.player)
+        return self._player
+    
+    @property
+    def equipped_item_handles(self) -> EquippedItemHandles:
+        if not self._equipped_ga_handles:
+            self._equipped_ga_handles = EquippedItemHandles(self._struct.equippedItemsGaHandles)
+        return self._equipped_ga_handles
+    
+    @property
+    def common_inventory_count(self) -> int:
+        return self._struct.commonItemInventoryCount
+    
+    @property
+    def key_inventory_count(self) -> int:
+        return self._struct.keyItemInventoryCount
+    
+    @property
+    def common_storage_count(self) -> int:
+        return self._struct.commonItemStorageCount
+    
+    @property
+    def key_storage_count(self) -> int:
+        return self._struct.keyItemStorageCount
+    
+    @property
+    def all_items_count(self) -> int:
+        return self._struct.allItemsCount
+    
+    @property
+    def total_deaths_count(self) -> int:
+        return self._struct.totalDeathsCount
+    
+    def get_character_info(self, index) -> CharacterSelection:
+        if not 0 <= index < 10:
+            raise ValueError("Invalid index while getting character")
+        if index not in self._character_selections.keys():
+            self._character_selections[index] = CharacterSelection(self._struct.characterSelection[index])
+        return self._character_selections[index]
+    
+    def get_characters(self) -> list[CharacterSelection]:
+        return [self.get_character_info(i) for i in range(10)]
+    
+    def get_flag(self, bit_offset) -> bool:
+        byte = self._struct.eventFlags[bit_offset // 8]
+        bit = bit_offset % 8
+        bit_mask = 1 << bit
+        return bit_mask & byte != 0
+    
+    def has_dlc(self) -> bool:
+        print(self._struct.dlc)
+        return self._struct.dlc != 0
+    
+    def check_item_set(self) -> None:
+        if not self._item_set:
+            self._item_set = {self._struct.allItems[i] for i in range(self.all_items_count)}
+    
+    def get_items(self) -> list[int]:
+        self.check_item_set()
+        return self._item_set
+    
+    def has_item(self, item_id: int) -> bool:
+        self.check_item_set()
+        return item_id in self._item_set
+    
+    
+
+--- D:\Python\save_parser\src\parser\__init__.py ---
+from .parser import update_data, get_data, invalidate, get_headers
+
+__all__ = ["update_data", "get_data", "invalidate", "get_headers"]
+
+
+
