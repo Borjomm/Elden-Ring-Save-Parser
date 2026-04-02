@@ -5,8 +5,8 @@ from PySide6.QtWidgets import QWidget, QComboBox, QVBoxLayout, QLabel, QMessageB
 from PySide6.QtGui import QGuiApplication, QAction, QKeySequence
 from PySide6.QtCore import QObject
 
-from parser.wrapper import CharacterSelection, CharacterData
-from parser import update_data, get_headers, get_data
+from app.parser.wrapper import CharacterSelection, CharacterData
+from app.parser import update_data, get_headers, get_data
 
 def get_spawn_coordinates(width: int, height: int):
     screen = QGuiApplication.primaryScreen()  # Получаем основной экран

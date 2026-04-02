@@ -6,12 +6,12 @@ import traceback
 from PySide6.QtWidgets import QApplication
 
 # Import our new architectural layers
-from parser.adapter import ParserAdapter
-from infrastructure.settings_repository import SettingsRepository
-from infrastructure.watcher_service import FileWatcherService
-from core.app_state import AppStore
-from core.save_controller import SaveController
-from new_main_window import MainWindow
+from app.parser.adapter import ParserAdapter
+from app.infrastructure.settings_repository import SettingsRepository
+from app.infrastructure.watcher_service import FileWatcherService
+from app.core.app_state import AppStore
+from app.core.save_controller import SaveController
+from app.main_window import MainWindow
 
 class EldenApp(QApplication):
     def __init__(self):

@@ -5,11 +5,11 @@ from PySide6.QtCore import Qt, QSortFilterProxyModel, QUrl
 from typing import cast
 from sqlite3 import Connection
 
-from parser.wrapper import CharacterData
-from data.consts import DLC, OFFSET, REMEMBRANCE, LINK, QT_GREEN, QT_RED, QT_YELLOW, REGION_NAME
-from core.app_state import AppStore, AppState
-from util.utils import make_combo_widget
-from util.animation import flash_item
+from app.parser.wrapper import CharacterData
+from app.data.consts import DLC, OFFSET, REMEMBRANCE, LINK, QT_GREEN, QT_RED, QT_YELLOW, REGION_NAME
+from app.core.app_state import AppStore, AppState
+from app.util.utils import make_combo_widget
+from app.util.animation import flash_item
 
 class BossWindow(QWidget):
     def __init__(self, connection: Connection, store: AppStore):

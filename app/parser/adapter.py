@@ -2,8 +2,8 @@ import ctypes
 import os
 import threading
 
-from parser.models import CCharacterData
-from parser.wrapper import CharacterData, CharacterSelection
+from app.parser.models import CCharacterData
+from app.parser.wrapper import CharacterData, CharacterSelection
 
 _DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "parser.dll")
 

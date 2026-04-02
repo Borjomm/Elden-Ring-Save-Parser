@@ -2,11 +2,11 @@ from PySide6.QtWidgets import QMainWindow, QTabWidget, QVBoxLayout, QWidget, QSt
 from sqlite3 import Connection
 from functools import partial
 
-from widgets.file_io_widget import FileIOWidget
-from widgets.tree_new import BossWindow
-from util import utils
-from core.app_state import AppStore, AppState
-from core.save_controller import SaveController
+from app.widgets.file_io_widget import FileIOWidget
+from app.widgets.tree import BossWindow
+from app.util import utils
+from app.core.app_state import AppStore, AppState
+from app.core.save_controller import SaveController
 
 class MainWindow(QMainWindow):
     def __init__(self, store: AppStore, controller: SaveController, db_conn: Connection):

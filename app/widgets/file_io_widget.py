@@ -1,8 +1,8 @@
 import os
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QComboBox, QFileDialog
 
-from core.app_state import AppStore
-from core.save_controller import SaveController
+from app.core.app_state import AppStore
+from app.core.save_controller import SaveController
 
 class FileIOWidget(QWidget):
     def __init__(self, parent: QWidget, controller: SaveController, store: AppStore):

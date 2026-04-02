@@ -2,7 +2,7 @@ __pycache__/
 test_code/
 
 
-.vemv/
+.venv/
 .env
 
 

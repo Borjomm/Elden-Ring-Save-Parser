@@ -1,9 +1,9 @@
 import time
 from datetime import datetime
 from .app_state import AppStore
-from parser.adapter import ParserAdapter, FileLockedError, ParserError
-from infrastructure.settings_repository import SettingsRepository
-from infrastructure.watcher_service import FileWatcherService
+from app.parser.adapter import ParserAdapter, FileLockedError, ParserError
+from app.infrastructure.settings_repository import SettingsRepository
+from app.infrastructure.watcher_service import FileWatcherService
 
 class SaveController:
     def __init__(self, store: AppStore, adapter: ParserAdapter, watcher: FileWatcherService, settings: SettingsRepository):
