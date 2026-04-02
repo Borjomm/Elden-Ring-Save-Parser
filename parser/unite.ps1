@@ -1,1 +1,0 @@
-Get-ChildItem -Recurse -Include *.py,*json,*txt | ForEach-Object { "--- $($_.FullName) ---"; Get-Content -Raw $_.FullName; "" } | Set-Content -Path "output.txt" -Encoding utf8

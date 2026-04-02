@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field, replace
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from datetime import datetime
-from parser.wrapper import CharacterData, CharacterSelection
 from PySide6.QtCore import QObject, Signal
-if TYPE_CHECKING:
-    from new_main_window import MainWindow
+
+from app.parser.wrapper import CharacterData, CharacterSelection
+
 
 @dataclass(frozen=True)  # 'frozen' makes it immutable, preventing accidental side-effects
 class AppState:
