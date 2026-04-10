@@ -40,6 +40,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tabs)
         self.boss_tab = BossWindow(self.db_conn, self.store)
         self.tabs.addTab(self.boss_tab, "Bosses")
+        self.tabs.addTab(QWidget(), "???")
 
         # 4. Status Bar (To show errors or loading states)
         self.status_bar = QStatusBar()

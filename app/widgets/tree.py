@@ -7,7 +7,7 @@ from sqlite3 import Connection
 
 from app.parser.wrapper import CharacterData
 from app.data.consts import DLC, OFFSET, REMEMBRANCE, LINK, QT_GREEN, QT_RED, QT_YELLOW, REGION_NAME
-from app.core.app_state import AppStore, AppState
+from app.core.app_state import AppStore, AppState, UpdateType
 from app.util.utils import make_combo_widget
 from app.util.animation import flash_item
 from .observer_tab import BaseObserverTab
@@ -134,16 +134,18 @@ class BossWindow(BaseObserverTab):
 
         self.base_model.blockSignals(True)
         tree_changed = False
-        is_startup = state.time_since_start() < 1.0
+        is_startup = state.update_type == UpdateType.STARTUP
 
         for i in range(root_item.rowCount()):
-            region_item = root_item.child(i)
             region_boss_added = False
             region_boss_removed = False
+            is_region_expanded = True
+
+            region_item = root_item.child(i)
             region_index = region_item.index()
             region_proxy_index = self.proxy_model.mapFromSource(region_index)
             is_region_visible = region_proxy_index.isValid()
-            is_region_expanded = True
+            
             if is_region_visible:
                 is_region_expanded = self.tree.isExpanded(region_proxy_index)
             
@@ -152,12 +154,14 @@ class BossWindow(BaseObserverTab):
                 offset = boss_item.data(OFFSET)
                 new_state = Qt.CheckState.Checked if data.get_flag(offset) else Qt.CheckState.Unchecked
                 check_state = boss_item.checkState()
+                
                 if new_state != check_state:
                     tree_changed = True
                     print(f"Updated boss: {boss_item.text()}")
                     if new_state == Qt.CheckState.Checked:
                         region_boss_added = True
-                        if state.time_since_watching() > 1.0:
+
+                        if state.update_type == UpdateType.MINOR:
                             self.bottom_text_bar.setText(f"Boss slain: {boss_item.text()}")
                             if is_region_visible and not is_region_expanded:
                                 self.tree.expand(region_proxy_index)
@@ -188,7 +192,7 @@ class BossWindow(BaseObserverTab):
         if tree_changed:
             self.proxy_model.invalidate()
         
-        if not tree_changed and state.time_since_last_save() > 5.0:
+        if not tree_changed:
             self.bottom_text_bar.setText("")
 
     def update_search_box(self, text):

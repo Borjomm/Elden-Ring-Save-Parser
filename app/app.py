@@ -37,7 +37,7 @@ class EldenApp(QApplication):
         self.controller = SaveController(
             store=self.store,
             adapter=self.parser,
-            watcher=self.watcher,
+            file_watcher=self.watcher,
             settings=self.settings
         )
 
