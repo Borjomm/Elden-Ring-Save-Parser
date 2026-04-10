@@ -1,11 +1,12 @@
 import os
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QComboBox, QFileDialog
+from typing import Callable
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QComboBox, QFileDialog, QCheckBox
 
 from app.core.app_state import AppStore
 from app.core.save_controller import SaveController
 
 class FileIOWidget(QWidget):
-    def __init__(self, parent: QWidget, controller: SaveController, store: AppStore):
+    def __init__(self, parent: QWidget, controller: SaveController, store: AppStore, live_toggle_callback: Callable):
         super().__init__(parent)
         self.controller = controller
         
@@ -13,11 +14,14 @@ class FileIOWidget(QWidget):
         self.line = QLineEdit(readOnly=True)
         self.button = QPushButton("Choose Save...")
         self.characters = QComboBox()
+        self.live_checkbox = QCheckBox("Live Mode")
+        self.live_checkbox.toggled.connect(live_toggle_callback)
 
         layout = QHBoxLayout()
         layout.addWidget(self.line)
         layout.addWidget(self.button)
         layout.addWidget(self.characters)
+        layout.addWidget(self.live_checkbox)
         self.setLayout(layout)
 
         # 2. Wire up UI Intents (User actions)
@@ -81,3 +85,7 @@ class FileIOWidget(QWidget):
                         break
 
         self.characters.blockSignals(False)
+
+    def toggle(self, enabled: bool):
+        self.button.setEnabled(enabled)
+        self.characters.setEnabled(enabled)

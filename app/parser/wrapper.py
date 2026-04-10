@@ -383,4 +383,13 @@ class CharacterData:
         self.check_item_set()
         return item_id in self._item_set
     
+    def clone_with_flags(self, new_flag_bytes: bytes) -> 'CharacterData':
+        """Creates a copy of the character data but with updated event flags."""
+        # This keeps the name, level, and items the same, but swaps the flag buffer
+        # Note: If you want to update HP/Souls too, you'd add that here
+        import copy
+        new_obj = copy.copy(self) 
+        new_obj._flags = new_flag_bytes
+        return new_obj
+    
     

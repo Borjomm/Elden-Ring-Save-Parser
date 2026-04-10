@@ -21,7 +21,6 @@ class BaseObserverTab(QWidget):
             self._perform_sync(state)
         else:
             self.dirty = True
-            print("Dirty")
 
     def showEvent(self, event):
         """Called by Qt automatically when the tab becomes visible."""
@@ -29,7 +28,6 @@ class BaseObserverTab(QWidget):
         # When the user clicks this tab, check if we are behind the state
         if self.dirty:
             self._perform_sync(self.store.state)
-            print("Clean")
             self.dirty = False
 
     def _perform_sync(self, state: AppState):

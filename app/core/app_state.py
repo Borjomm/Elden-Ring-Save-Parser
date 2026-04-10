@@ -29,14 +29,17 @@ class AppState:
     previous_character: Optional[CharacterData] = None
     current_character: Optional[CharacterData] = None
     recent_files: list[tuple[str, int]] = field(default_factory=list)
+    deltas: list[tuple[int, bool]] = field(default_factory=list)
     
     
     # App Status
     update_type: UpdateType = UpdateType.NONE
+    data_source: DataSource = DataSource.NONE
     is_loading: bool = False
     last_error: Optional[str] = None
     is_watching: bool = False
     is_attached: bool = False
+    attach_failed: bool = False
 
     @property
     def has_save_loaded(self) -> bool:

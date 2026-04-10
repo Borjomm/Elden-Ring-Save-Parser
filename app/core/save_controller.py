@@ -1,20 +1,91 @@
 import time
-from datetime import datetime
-from .app_state import AppStore, UpdateType
+from .app_state import AppStore, UpdateType, DataSource
 from app.parser.adapter import ParserAdapter, FileLockedError, ParserError
 from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
-from app.infrastructure.live_watcher import LiveWatcherService
+from app.parser.live_watcher import LiveWatcherService
 
 class SaveController:
-    def __init__(self, store: AppStore, adapter: ParserAdapter, file_watcher: FileWatcherService, settings: SettingsRepository):
+    def __init__(self, store: AppStore, adapter: ParserAdapter, file_watcher: FileWatcherService, live_watcher: LiveWatcherService, settings: SettingsRepository):
         self.store = store
         self.adapter = adapter
         self.file_watcher = file_watcher
+        self.live_watcher = live_watcher
         self.settings = settings
         
         # Connect the watcher to our internal handler
         self.file_watcher.file_changed.connect(self._on_file_modified)
+        self.live_watcher.delta_detected.connect(self._on_memory_modified)
+
+    def toggle_live_mode(self, enabled: bool) -> bool:
+        """Action: UI toggles the 'Live Mode' switch."""
+        self.store.update_state(attach_failed=False)
+        if enabled:
+            # 1. Stop watching file
+            self.file_watcher.stop()
+            # 2. Try to attach to Elden Ring memory
+            if self.live_watcher.start(self.make_memory_scan):
+                self.store.update_state(is_watching=False, is_attached=True)
+                self.make_memory_scan(major=True)
+                return True
+            else:
+                self.store.update_state(last_error="Could not find Elden Ring process.", is_watching=False, is_attached=False, attach_failed=True)
+                return False
+        else:
+            # 1. Stop memory timer
+            self.live_watcher.stop()
+            # 2. Resume watching file
+            self.load_last_session(startup=False)
+            
+            return True
+
+    def _on_memory_modified(self, offset_list: list[tuple[int, bool]]):
+        """Trigger: The LiveWatcher detected changes in RAM."""
+        state = self.store.state
+        if not state.current_character:
+            return
+
+        # 1. Get the latest pool from the C buffer
+        new_flags = self.live_watcher.get_current_flags_bytes()
+        
+        # 2. Create an updated CharacterData snapshot
+        updated_data = state.current_character.clone_with_flags(new_flags)
+
+        # 3. Emit the MINOR pulse
+        # We send the deltas so the UI only animates the changed items
+        self.store.update_state(
+            previous_character=self.store.state.current_character,
+            current_character=updated_data,
+            deltas=offset_list,
+            update_type=UpdateType.MINOR
+        )
+        
+        # 4. Reset update type
+        self.store.update_state(update_type=UpdateType.NONE, deltas=[])
+
+
+
+    def make_memory_scan(self, major: bool = False):
+        state = self.store.state
+
+        if not state.current_character or not state.is_attached:
+            return
+        try:
+            self.live_watcher.check_for_changes(supress_signal=major)
+            if major:
+                updated_data = state.current_character.clone_with_flags(self.live_watcher.get_current_flags_bytes())
+                self.store.update_state(
+                    previous_character=None,
+                    current_character=updated_data,
+                    update_type=UpdateType.MAJOR,
+                    deltas=[]
+                )
+                self.store.update_state(update_type=UpdateType.NONE)
+        except ParserError as e:
+            self.store.update_state(
+                last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE, 
+            )
+
 
     def open_new_file(self, filepath: str, slot: int = 0, startup: bool = False):
         """Action: User manually selects a new .sl2 file."""
@@ -35,7 +106,8 @@ class SaveController:
                 current_character=None,
                 is_loading=False,
                 recent_files=self.settings.get_recent_list(),
-                update_type = UpdateType.NONE
+                update_type = UpdateType.NONE,
+                data_source = DataSource.SAVE_FILE
             )
             
             # 4. Update the OS watcher to point to the new file
@@ -47,7 +119,7 @@ class SaveController:
             self.select_character_slot(slot, startup)
 
         except ParserError as e:
-            self.store.update_state(is_loading=False, last_error=str(e), update_type = UpdateType.NONE)
+            self.store.update_state(is_loading=False, last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE)
 
     def select_character_slot(self, index: int, startup: bool = False):
         """Action: User clicks a character in the dropdown."""
@@ -74,7 +146,7 @@ class SaveController:
             self.store.update_state(update_type = UpdateType.NONE)
 
         except ParserError as e:
-            self.store.update_state(is_loading=False, last_error=str(e), update_type = UpdateType.NONE)
+            self.store.update_state(is_loading=False, last_error=str(e), update_type = UpdateType.NONE, attach_failed = True)
 
     def _on_file_modified(self, filepath: str):
         """Trigger: The FileWatcher detected a change on disk."""
@@ -96,7 +168,7 @@ class SaveController:
                 data = self.adapter.load_character(path, slot)
                 
                 # Update state (UI will auto-refresh)
-                self.store.update_state(last_character = self.store.state.current_character, current_character=data, last_error=None, update_type = UpdateType.MINOR)
+                self.store.update_state(previous_character = self.store.state.current_character, current_character=data, last_error=None, update_type = UpdateType.MINOR)
                 self.store.update_state(update_type = UpdateType.NONE)
                 return 
                 
@@ -107,13 +179,13 @@ class SaveController:
                 self.store.update_state(last_error=f"Auto-reload failed: {e}", update_type = UpdateType.NONE)
                 break
 
-    def load_last_session(self):
+    def load_last_session(self, startup: bool = True):
         """Action: Called on App Startup to restore previous state."""
         last_path = self.settings.get_last_path()
         last_slot = self.settings.get_last_slot()
         
         if last_path:
-            self.open_new_file(last_path, last_slot if last_slot is not None else 0, startup = True)
+            self.open_new_file(last_path, last_slot if last_slot is not None else 0, startup = startup)
 
     def open_recent(self, filepath: str, slot: int):
         self.open_new_file(filepath, slot)

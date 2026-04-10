@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
 
         # 2. File Selection Area (Top)
         # We pass the controller so it can trigger "Open File"
-        self.file_header = FileIOWidget(self, self.controller, self.store)
+        self.file_header = FileIOWidget(self, self.controller, self.store, self.toggle_live_mode)
         layout.addWidget(self.file_header)
 
         # 3. Content Tabs
@@ -48,6 +48,11 @@ class MainWindow(QMainWindow):
 
         # 5. Connect to the Store to react to changes
         self.store.state_changed.connect(self.on_state_changed)
+
+    def toggle_live_mode(self, enabled: bool):
+        if self.controller.toggle_live_mode(enabled):
+            self.file_header.toggle(not enabled)
+            self.load_recent.setEnabled(not enabled)
 
     def on_state_changed(self, state: AppState):
         """The UI 'paints' itself based on the current AppState."""
@@ -68,6 +73,10 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(f"Watching: {state.current_path}")
         else:
             self.status_bar.showMessage("Ready. Please select a save file.")
+        if state.attach_failed:
+            self.file_header.live_checkbox.setChecked(False)
+            self.status_bar.showMessage("Game not found. Launch Elden Ring and try again!")
+
 
     def _make_menu(self):
         self.menu = QMenuBar()

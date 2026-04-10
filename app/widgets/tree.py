@@ -85,6 +85,7 @@ class BossWindow(BaseObserverTab):
         self.tree.resizeColumnToContents(0)
 
     def populate_model(self):
+        self.offset_to_item = {}
         root_item = self.base_model.invisibleRootItem()
         region_items = {}
 
@@ -113,6 +114,8 @@ class BossWindow(BaseObserverTab):
             boss_item.setData(save_bit_offset, OFFSET)
             boss_item.setData(link, LINK)
 
+            self.offset_to_item[save_bit_offset] = boss_item
+
             parent_item.appendRow(boss_item)
 
         self.base_model.layoutChanged.emit()
@@ -128,72 +131,103 @@ class BossWindow(BaseObserverTab):
         region_name = region_item.data(REGION_NAME)
         region_item.setText(f"{region_name} ({checked}/{total})")
 
+
     def update_with(self, data: CharacterData, state: AppState):
         self.has_dlc = data.has_dlc()
-        root_item = self.base_model.invisibleRootItem()
-
         self.base_model.blockSignals(True)
-        tree_changed = False
+        
         is_startup = state.update_type == UpdateType.STARTUP
+        is_minor = state.update_type == UpdateType.MINOR
 
-        for i in range(root_item.rowCount()):
-            region_boss_added = False
-            region_boss_removed = False
-            is_region_expanded = True
+        if is_minor and state.deltas:
+            print("Updating...")
+            # key: id(item), value: [item, added_bool, removed_bool]
+            affected_regions = {} 
 
-            region_item = root_item.child(i)
-            region_index = region_item.index()
-            region_proxy_index = self.proxy_model.mapFromSource(region_index)
-            is_region_visible = region_proxy_index.isValid()
-            
-            if is_region_visible:
-                is_region_expanded = self.tree.isExpanded(region_proxy_index)
-            
-            for j in range(region_item.rowCount()):
-                boss_item = region_item.child(j)
-                offset = boss_item.data(OFFSET)
-                new_state = Qt.CheckState.Checked if data.get_flag(offset) else Qt.CheckState.Unchecked
-                check_state = boss_item.checkState()
+            for offset, new_val in state.deltas:
+                boss_item = self.offset_to_item.get(offset)
+                if not boss_item:
+                    continue
+                new_state = Qt.CheckState.Checked if new_val else Qt.CheckState.Unchecked
                 
-                if new_state != check_state:
-                    tree_changed = True
-                    print(f"Updated boss: {boss_item.text()}")
-                    if new_state == Qt.CheckState.Checked:
-                        region_boss_added = True
-
-                        if state.update_type == UpdateType.MINOR:
-                            self.bottom_text_bar.setText(f"Boss slain: {boss_item.text()}")
-                            if is_region_visible and not is_region_expanded:
-                                self.tree.expand(region_proxy_index)
-                                is_region_expanded = True
-                    else:
-                        region_boss_removed = True
+                if boss_item.checkState() != new_state:
                     boss_item.setCheckState(new_state)
+                    
+                    if new_state == Qt.CheckState.Checked:
+                        self.bottom_text_bar.setText(f"Boss slain: {boss_item.text()}")
+                        self._handle_minor_expansion(boss_item)
+                    
+                    flash_item(self.base_model, boss_item.index(), QT_GREEN if new_val else QT_RED)
 
-                    # Animation
-                    is_boss_visible = self.proxy_model.mapFromSource(boss_item.index()).isValid()
-                    if is_boss_visible and is_region_visible and is_region_expanded and not is_startup:
-                        flash_item(self.base_model, boss_item.index(), QT_GREEN if new_state == Qt.CheckState.Checked else QT_RED)
+                    # Group updates by Region
+                    region_item = boss_item.parent()
+                    r_id = id(region_item) # Use Python object ID as hashable key
+                    
+                    if r_id not in affected_regions:
+                        affected_regions[r_id] = [region_item, False, False]
+                    
+                    if new_val: 
+                        affected_regions[r_id][1] = True # Added
+                    else: 
+                        affected_regions[r_id][2] = True # Removed
 
-            self.update_region_count(region_item)
+            # Finalize affected regions once per tick
+            for r_id in affected_regions:
+                region_item, added, removed = affected_regions[r_id]
+                self.update_region_count(region_item)
+                self._handle_region_flash(region_item, added, removed)
 
-            # Animation
-            if not is_region_expanded and not is_startup:
-                if region_boss_added and region_boss_removed:
-                    flash_item(self.base_model, region_index, QT_YELLOW)
-                elif region_boss_added:
-                    flash_item(self.base_model, region_index, QT_GREEN)
-                elif region_boss_removed:
-                    flash_item(self.base_model, region_index, QT_RED)
+        else:
+            self._full_sync(data, is_startup)
 
         self.base_model.blockSignals(False)
         self.tree.viewport().update()
-        
-        if tree_changed:
-            self.proxy_model.invalidate()
-        
-        if not tree_changed:
-            self.bottom_text_bar.setText("")
+        self.proxy_model.invalidate()
+
+    def _handle_minor_expansion(self, boss_item):
+        """Logic to expand region if a boss is killed while folder is closed."""
+        region_item = boss_item.parent()
+        region_proxy_index = self.proxy_model.mapFromSource(region_item.index())
+        if region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
+            self.tree.expand(region_proxy_index)
+
+    def _handle_region_flash(self, region_item, added, removed):
+        """Logic to flash the region item if it is currently collapsed."""
+        if not added and not removed:
+            return
+        region_proxy_index = self.proxy_model.mapFromSource(region_item.index())
+        if region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
+            if added and removed: color = QT_YELLOW
+            elif added: color = QT_GREEN
+            else: color = QT_RED
+            flash_item(self.base_model, region_item.index(), color)
+
+    def _full_sync(self, data, is_startup):
+        root_item = self.base_model.invisibleRootItem()
+        for i in range(root_item.rowCount()):
+            region_boss_added = False
+            region_boss_removed = False
+            region_item = root_item.child(i)
+            
+            # (Check visibility/expanded state just like your original code)
+            proxy_idx = self.proxy_model.mapFromSource(region_item.index())
+            is_expanded = self.tree.isExpanded(proxy_idx) if proxy_idx.isValid() else True
+
+            for j in range(region_item.rowCount()):
+                boss_item = region_item.child(j)
+                offset = boss_item.data(OFFSET)
+                new_val = data.get_flag(offset)
+                new_state = Qt.CheckState.Checked if new_val else Qt.CheckState.Unchecked
+                
+                if boss_item.checkState() != new_state:
+                    if new_val: region_boss_added = True
+                    else: region_boss_removed = True
+                    boss_item.setCheckState(new_state)
+
+            self.update_region_count(region_item)
+            # Only flash regions on non-startup major updates if needed
+            if not is_startup and not is_expanded:
+                self._handle_region_flash(region_item, region_boss_added, region_boss_removed)
 
     def update_search_box(self, text):
         if len(text) > 5:

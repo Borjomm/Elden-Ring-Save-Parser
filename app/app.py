@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication
 from app.parser.adapter import ParserAdapter
 from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
+from app.parser.live_watcher import LiveWatcherService
 from app.core.app_state import AppStore
 from app.core.save_controller import SaveController
 from app.main_window import MainWindow
@@ -31,6 +32,7 @@ class EldenApp(QApplication):
         self.parser = ParserAdapter()
         self.settings = SettingsRepository("YourName", "EldenChecklist")
         self.watcher = FileWatcherService()
+        self.live_watcher = LiveWatcherService()
 
         # 3. Initialize Application Layer (The "Brain")
         self.store = AppStore()
@@ -38,6 +40,7 @@ class EldenApp(QApplication):
             store=self.store,
             adapter=self.parser,
             file_watcher=self.watcher,
+            live_watcher=self.live_watcher,
             settings=self.settings
         )
 
