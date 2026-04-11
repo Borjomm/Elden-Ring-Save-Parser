@@ -10,7 +10,7 @@ from app.parser.adapter import ParserAdapter
 from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
 from app.parser.live_watcher import LiveWatcherService
-from app.core.app_state import AppStore
+from app.core.app_state import AppStore, EventBus
 from app.core.save_controller import SaveController
 from app.main_window import MainWindow
 
@@ -36,17 +36,19 @@ class EldenApp(QApplication):
 
         # 3. Initialize Application Layer (The "Brain")
         self.store = AppStore()
+        self.dispatcher = EventBus()
         self.controller = SaveController(
             store=self.store,
             adapter=self.parser,
             file_watcher=self.watcher,
             live_watcher=self.live_watcher,
-            settings=self.settings
+            settings=self.settings,
+            dispatcher=self.dispatcher
         )
 
         # 4. Initialize Presentation Layer (The "Face")
         # We pass the store and controller so the UI can listen and act
-        self.window = MainWindow(self.store, self.controller, self.db_connection)
+        self.window = MainWindow(self.store, self.controller, self.db_connection, self.dispatcher)
         self.window.show()
 
         # 5. Kick off the initial session load

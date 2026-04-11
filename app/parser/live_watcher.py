@@ -4,7 +4,9 @@ from typing import Callable
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
+from app.core.app_state import event_bus
 from app.parser.adapter import ParserError
+from app.data.containers import Delta
 
 _DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare.dll")
 
@@ -21,7 +23,7 @@ MAX_DELTAS = 10000
 
 class LiveWatcherService(QObject):
     # This sends the list of offsets to the Controller
-    delta_detected = Signal(list)
+    delta_detected = Signal(Delta)
 
     def __init__(self):
         super().__init__()
@@ -50,13 +52,15 @@ class LiveWatcherService(QObject):
             if count > 0:
                 # Convert to a simple Python list of offsets
                 if not supress_signal:
-                    offset_list = [(self.deltas[i].offset, self.deltas[i].changed_to) for i in range(count)]
-                    self.delta_detected.emit(offset_list)
+                    deltas = [Delta(self.deltas[i].event_id, self.deltas[i].offset, self.deltas[i].changed_to) for i in range(count)]
+                    self.delta_detected.emit(deltas)
             
             # 3. Swap pools (efficient way to update past_pool)
             ctypes.memmove(self.past_pool, self.current_pool, POOL_SIZE)
         else:
-            raise ParserError("Couldn't fill flags from memory. Are you sure Elden Ring is running?")
+            self.stop()
+            self.lib.close()
+            raise ParserError("Connection severed. Elden Ring closed")
 
     def get_current_flags_bytes(self) -> bytes:
         """Returns a fresh copy of the current memory pool as Python bytes."""
@@ -71,4 +75,3 @@ class LiveWatcherService(QObject):
 
     def stop(self):
         self.timer.stop()
-        self.first = True

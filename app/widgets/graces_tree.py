@@ -1,23 +1,25 @@
 
-from PySide6.QtWidgets import QTreeView, QVBoxLayout, QWidget, QLineEdit, QCheckBox, QHBoxLayout, QPushButton, QLabel, QMenu, QApplication
+from PySide6.QtWidgets import QTreeView, QVBoxLayout, QWidget, QLineEdit, QHBoxLayout, QPushButton, QLabel, QMenu, QApplication
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QDesktopServices
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QUrl
 from typing import cast
 from sqlite3 import Connection
 
 from app.parser.wrapper import CharacterData
-from app.data.consts import DLC, OFFSET, REMEMBRANCE, LINK, QT_GREEN, QT_RED, QT_YELLOW, REGION_NAME
-from app.core.app_state import AppStore, AppState, UpdateType
+from app.data.consts import LINK, QT_GREEN, QT_RED, QT_YELLOW, REGION_NAME
+from app.core.app_state import AppStore, AppState, UpdateType, EventBus
 from app.util.utils import make_combo_widget
 from app.util.animation import flash_item
+from .tree_item import RegionItem, GraceItem
 from .observer_tab import BaseObserverTab
 
-class BossWindow(BaseObserverTab):
-    def __init__(self, connection: Connection, store: AppStore):
+class GraceWindow(BaseObserverTab):
+    def __init__(self, connection: Connection, store: AppStore, dispatcher: EventBus):
         super().__init__(store)
         self.connection = connection
+        self.dispatcher = dispatcher
         self.has_dlc = True
-        self.setWindowTitle("Boss Tracker")
+        self.setWindowTitle("Grace Tracker")
 
         # Create the base model
         self.base_model = QStandardItemModel()
@@ -55,8 +57,6 @@ class BossWindow(BaseObserverTab):
         self.dlc_box = make_combo_widget("DLC", ["Show all", "Don't show", "Only show"], self.proxy_model.set_show_dlc, not self.has_dlc)
         self.show_box = make_combo_widget("Filter selected", ["Show all", "Show checked", "Show unchecked"], self.proxy_model.set_show_checked_only, 0)
 
-        self.remembrance = QCheckBox
-
         self.top_layout = QHBoxLayout()
         self.top_layout.addWidget(self.button_widget)
         self.top_layout.addWidget(self.search)
@@ -75,6 +75,7 @@ class BossWindow(BaseObserverTab):
 
         # Populate the model
         self.populate_model()
+        self.dispatcher.request_expansion.connect(self._handle_minor_expansion)
         self.update_all_region_counts()
 
         # Context Menu
@@ -85,51 +86,43 @@ class BossWindow(BaseObserverTab):
         self.tree.resizeColumnToContents(0)
 
     def populate_model(self):
-        self.offset_to_item = {}
+        self.event_flag_to_item = {}
         root_item = self.base_model.invisibleRootItem()
         region_items = {}
 
-        query = "SELECT * FROM bosses ORDER BY is_dlc, region, name"
+        query = "SELECT * FROM graces ORDER BY region_order, region, name"
         cursor = self.connection.cursor()
         cursor.execute(query)
         rows = cursor.fetchall()
 
         self.base_model.layoutAboutToBeChanged.emit()
-        for boss_id, boss_name, region, remembrance, dlc, save_bit_offset, link in rows:
-            if region not in region_items:
-                region_item = QStandardItem()
-                region_item.setEditable(False)
-                region_item.setData(region, REGION_NAME)
+        for event_id, grace_name, region,  dlc, _ in rows:
+            print(event_id, grace_name, region, dlc)
+            if region not in region_items and region:
+                region_item = RegionItem(self.dispatcher, region)
                 root_item.appendRow(region_item)
                 region_items[region] = region_item
+            if not region:
+                parent_item = root_item
+            else:
+                parent_item = region_items[region]
+            grace_item = GraceItem(
+                dispatcher=self.dispatcher,
+                grace_name=grace_name,
+                event_id=event_id,
+                dlc=dlc)
 
-            parent_item = region_items[region]
-            boss_item = QStandardItem(boss_name)
-            boss_item.setEditable(False)
-            boss_item.setCheckable(False)
-            boss_item.setCheckState(Qt.CheckState.Unchecked)
+            self.event_flag_to_item[event_id] = grace_item
 
-            boss_item.setData(remembrance, REMEMBRANCE)
-            boss_item.setData(dlc, DLC)
-            boss_item.setData(save_bit_offset, OFFSET)
-            boss_item.setData(link, LINK)
-
-            self.offset_to_item[save_bit_offset] = boss_item
-
-            parent_item.appendRow(boss_item)
+            parent_item.appendRow(grace_item)
 
         self.base_model.layoutChanged.emit()
 
     def update_all_region_counts(self):
         for i in range(self.base_model.rowCount()):
             region_item = self.base_model.item(i)
-            self.update_region_count(region_item)
-
-    def update_region_count(self, region_item: QStandardItem):
-        total = region_item.rowCount()
-        checked = sum(1 for i in range(total) if region_item.child(i).checkState() == Qt.CheckState.Checked)
-        region_name = region_item.data(REGION_NAME)
-        region_item.setText(f"{region_name} ({checked}/{total})")
+            if isinstance(region_item, RegionItem):
+                region_item.update_count()
 
 
     def update_with(self, data: CharacterData, state: AppState):
@@ -137,57 +130,15 @@ class BossWindow(BaseObserverTab):
         self.base_model.blockSignals(True)
         
         is_startup = state.update_type == UpdateType.STARTUP
-        is_minor = state.update_type == UpdateType.MINOR
-
-        if is_minor and state.deltas:
-            print("Updating...")
-            # key: id(item), value: [item, added_bool, removed_bool]
-            affected_regions = {} 
-
-            for offset, new_val in state.deltas:
-                boss_item = self.offset_to_item.get(offset)
-                if not boss_item:
-                    continue
-                new_state = Qt.CheckState.Checked if new_val else Qt.CheckState.Unchecked
-                
-                if boss_item.checkState() != new_state:
-                    boss_item.setCheckState(new_state)
-                    
-                    if new_state == Qt.CheckState.Checked:
-                        self.bottom_text_bar.setText(f"Boss slain: {boss_item.text()}")
-                        self._handle_minor_expansion(boss_item)
-                    
-                    flash_item(self.base_model, boss_item.index(), QT_GREEN if new_val else QT_RED)
-
-                    # Group updates by Region
-                    region_item = boss_item.parent()
-                    r_id = id(region_item) # Use Python object ID as hashable key
-                    
-                    if r_id not in affected_regions:
-                        affected_regions[r_id] = [region_item, False, False]
-                    
-                    if new_val: 
-                        affected_regions[r_id][1] = True # Added
-                    else: 
-                        affected_regions[r_id][2] = True # Removed
-
-            # Finalize affected regions once per tick
-            for r_id in affected_regions:
-                region_item, added, removed = affected_regions[r_id]
-                self.update_region_count(region_item)
-                self._handle_region_flash(region_item, added, removed)
-
-        else:
-            self._full_sync(data, is_startup)
+        self._full_sync(data, is_startup)
 
         self.base_model.blockSignals(False)
         self.tree.viewport().update()
         self.proxy_model.invalidate()
 
-    def _handle_minor_expansion(self, boss_item):
-        """Logic to expand region if a boss is killed while folder is closed."""
-        region_item = boss_item.parent()
-        region_proxy_index = self.proxy_model.mapFromSource(region_item.index())
+    def _handle_minor_expansion(self, item: QStandardItem):
+        """Logic to expand region if a grace is killed while folder is closed."""
+        region_proxy_index = self.proxy_model.mapFromSource(item.index())
         if region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
             self.tree.expand(region_proxy_index)
 
@@ -202,32 +153,40 @@ class BossWindow(BaseObserverTab):
             else: color = QT_RED
             flash_item(self.base_model, region_item.index(), color)
 
-    def _full_sync(self, data, is_startup):
+    def _full_sync(self, data: CharacterData, is_startup):
         root_item = self.base_model.invisibleRootItem()
         for i in range(root_item.rowCount()):
-            region_boss_added = False
-            region_boss_removed = False
+            region_grace_added = False
+            region_grace_removed = False
             region_item = root_item.child(i)
+
+            if isinstance(region_item, GraceItem): #TODO: Implement abstract logic
+                new_val = data.get_event_state(region_item.event_id)
+                new_state = Qt.CheckState.Checked if new_val else Qt.CheckState.Unchecked
+                
+                if region_item.checkState() != new_state:
+                    region_item.setCheckState(new_state)
+                    continue
             
             # (Check visibility/expanded state just like your original code)
             proxy_idx = self.proxy_model.mapFromSource(region_item.index())
             is_expanded = self.tree.isExpanded(proxy_idx) if proxy_idx.isValid() else True
 
             for j in range(region_item.rowCount()):
-                boss_item = region_item.child(j)
-                offset = boss_item.data(OFFSET)
-                new_val = data.get_flag(offset)
+                grace_item = region_item.child(j)
+                if not isinstance(grace_item, GraceItem): continue
+                new_val = data.get_event_state(grace_item.event_id)
                 new_state = Qt.CheckState.Checked if new_val else Qt.CheckState.Unchecked
                 
-                if boss_item.checkState() != new_state:
-                    if new_val: region_boss_added = True
-                    else: region_boss_removed = True
-                    boss_item.setCheckState(new_state)
-
-            self.update_region_count(region_item)
+                if grace_item.checkState() != new_state:
+                    if new_val: region_grace_added = True
+                    else: region_grace_removed = True
+                    grace_item.setCheckState(new_state)
+            if isinstance(region_item, RegionItem):
+                region_item.update_count()
             # Only flash regions on non-startup major updates if needed
             if not is_startup and not is_expanded:
-                self._handle_region_flash(region_item, region_boss_added, region_boss_removed)
+                self._handle_region_flash(region_item, region_grace_added, region_grace_removed)
 
     def update_search_box(self, text):
         if len(text) > 5:
@@ -254,8 +213,8 @@ class BossWindow(BaseObserverTab):
             action_copy.triggered.connect(lambda: QApplication.clipboard().setText(item.text()))
             menu.addAction(action_copy)
 
-        else: # Region Item
-            region_name = item.data(REGION_NAME)
+        elif isinstance(item, RegionItem):
+            region_name = item.region_name
             is_expanded = self.tree.isExpanded(proxy_index)
             if is_expanded:
                 action = QAction(f"Collapse {region_name}", self)
@@ -287,16 +246,18 @@ class BossFilterProxyModel(QSortFilterProxyModel):
         index = model.index(source_row, 0, source_parent)
         item = model.itemFromIndex(index)
 
-        if item.hasChildren():
+        if isinstance(item, RegionItem):
             for i in range(item.rowCount()):
                 if self.filterAcceptsRow(i, index):
                     return True
             return False
-
+        if not isinstance(item, GraceItem):
+            return True #TODO: Maybe?
+        
         if self.show_dlc is not None:
-            if self.show_dlc and not item.data(DLC):
+            if self.show_dlc and not item.dlc:
                 return False
-            elif not self.show_dlc and item.data(DLC):
+            elif not self.show_dlc and item.dlc:
                 return False
 
 

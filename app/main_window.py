@@ -3,17 +3,19 @@ from sqlite3 import Connection
 from functools import partial
 
 from app.widgets.file_io_widget import FileIOWidget
-from app.widgets.tree import BossWindow
+from app.widgets.boss_tree import BossWindow
+from app.widgets.graces_tree import GraceWindow
 from app.util import utils
-from app.core.app_state import AppStore, AppState
+from app.core.app_state import AppStore, AppState, EventBus, DataSource
 from app.core.save_controller import SaveController
 
 class MainWindow(QMainWindow):
-    def __init__(self, store: AppStore, controller: SaveController, db_conn: Connection):
+    def __init__(self, store: AppStore, controller: SaveController, db_conn: Connection, dispatcher: EventBus):
         super().__init__()
         self.store = store
         self.controller = controller
         self.db_conn = db_conn # Passed to Checklist tabs later
+        self.dispatcher = dispatcher
         self._last_recent_list = self.controller.settings.get_recent_list()
         
         self.setWindowTitle("Elden Ring Save Inspector")
@@ -38,8 +40,10 @@ class MainWindow(QMainWindow):
         # self.checklist_tab = ChecklistTab(self.store, self.db_conn)
         # self.tabs.addTab(self.stats_tab, "Stats")
         layout.addWidget(self.tabs)
-        self.boss_tab = BossWindow(self.db_conn, self.store)
+        self.boss_tab = BossWindow(self.db_conn, self.store, self.dispatcher)
         self.tabs.addTab(self.boss_tab, "Bosses")
+        self.grace_tab = GraceWindow(self.db_conn, self.store, self.dispatcher)
+        self.tabs.addTab(self.grace_tab, "Graces")
         self.tabs.addTab(QWidget(), "???")
 
         # 4. Status Bar (To show errors or loading states)
@@ -65,17 +69,20 @@ class MainWindow(QMainWindow):
             self._regenerate_recent_menu()
         
         # Update Status Bar
-        if state.is_loading:
-            self.status_bar.showMessage("Loading save data...")
+        if state.attach_failed:
+            err_msg = state.last_error
+            self.file_header.live_checkbox.setChecked(False)
+            if err_msg:
+                self.status_bar.showMessage(err_msg)
         elif state.last_error:
             self.status_bar.showMessage(f"Error: {state.last_error}")
-        elif state.current_path:
+        elif state.data_source == DataSource.LIVE_MEMORY:
+            self.status_bar.showMessage(f"Watching: Elden Ring memory")
+        elif state.current_path and state.data_source == DataSource.SAVE_FILE:
             self.status_bar.showMessage(f"Watching: {state.current_path}")
-        else:
+        else:   
             self.status_bar.showMessage("Ready. Please select a save file.")
-        if state.attach_failed:
-            self.file_header.live_checkbox.setChecked(False)
-            self.status_bar.showMessage("Game not found. Launch Elden Ring and try again!")
+
 
 
     def _make_menu(self):

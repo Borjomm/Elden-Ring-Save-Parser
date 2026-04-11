@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field, replace
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional, List, Callable
 from enum import Enum, auto
 from PySide6.QtCore import QObject, Signal
 
 from app.parser.wrapper import CharacterData, CharacterSelection
+from app.data.containers import Delta
 
 class DataSource(Enum):
     NONE = auto()
@@ -16,6 +16,11 @@ class UpdateType(Enum):
     STARTUP = auto()
     MAJOR = auto()
     MINOR = auto()
+
+class MemoryViewStatus(Enum):
+    NONE = auto()
+    MENU = auto()
+    IN_GAME = auto()
 
 @dataclass(frozen=True)  # 'frozen' makes it immutable, preventing accidental side-effects
 class AppState:
@@ -35,10 +40,8 @@ class AppState:
     # App Status
     update_type: UpdateType = UpdateType.NONE
     data_source: DataSource = DataSource.NONE
-    is_loading: bool = False
+    memory_view_status: MemoryViewStatus = MemoryViewStatus.NONE
     last_error: Optional[str] = None
-    is_watching: bool = False
-    is_attached: bool = False
     attach_failed: bool = False
 
     @property
@@ -67,8 +70,25 @@ class AppStore(QObject):
         self.state_changed.emit(self._state)
 
 class EventBus(QObject):
-    flag_changed = Signal(int, bool)
+    cycle_finished = Signal()
+    request_expansion = Signal(object)
 
-    live_loading_state_changed = Signal(bool)
+    def __init__(self):
+        super().__init__()
+        self._subscribers: dict[int, list[Callable]] = {}
+    
+    def subscribe(self, event_id: int, callback: Callable):
+        """Register a callback for a specific ID."""
+        if event_id not in self._subscribers:
+            self._subscribers[event_id] = []
+        self._subscribers[event_id].append(callback)
+
+    def dispatch_deltas(self, deltas: list[Delta]):
+        for delta in deltas:
+            # ONLY call the subscribers who care about this specific ID
+            if delta.event_id in self._subscribers:
+                for callback in self._subscribers[delta.event_id]:
+                    callback(delta.val)
+        self.cycle_finished.emit()
 
 event_bus = EventBus()

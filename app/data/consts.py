@@ -20,3 +20,5 @@ QT_GREEN = QColor(0, 100, 0, 150)
 QT_RED = QColor(130, 0, 0, 150)
 QT_YELLOW = QColor(160, 120, 0, 150)
 
+GAME_LOADED_FLAG = 50
+

@@ -1,6 +1,5 @@
-from threading import RLock
-
 from .models import *
+from app.data.block import PYTHON_BLOCK_MAP
 
 class CharacterSelection:
     def __init__(self, c_struct: CCharacterSelection):
@@ -361,6 +360,23 @@ class CharacterData:
     
     def get_characters(self) -> list[CharacterSelection]:
         return [self.get_character_info(i) for i in range(10)]
+    
+    def get_event_state(self, event_id: int) -> bool:
+        """Used during Major Updates by UI elements."""
+        # 1. Python calculates the exact offset dynamically
+        block_id = event_id // 1000
+        remainder = event_id % 1000
+        
+        base_bit_offset = PYTHON_BLOCK_MAP.get(block_id)
+        if base_bit_offset is None:
+            return False
+            
+        byte_part = (remainder // 8) * 8
+        bit_part = 7 - (remainder % 8)
+        target_offset = base_bit_offset + byte_part + bit_part
+        
+        # 2. Grab the specific flag from the local buffer wrapper
+        return self.get_flag(target_offset)
     
     def get_flag(self, bit_offset) -> bool:
         byte = self._flags[bit_offset // 8]
