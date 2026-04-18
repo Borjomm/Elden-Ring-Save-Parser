@@ -43,7 +43,7 @@ class EventTracker(QObject):
     def _map_region_flag(self, flag: int, flag_len: int):
         match flag_len:
             case 10:
-                region = 600000 + ((flag // 10000) % 10000)
+                region = (600000 + (((flag // 100000000) % 10) * 10000)) + ((flag // 10000) % 10000)
             case 8:
                 region = flag // 10000
             case _:

@@ -42,8 +42,18 @@ REGION_FLAGS = [
 ]
 
 REGION_MAP = {
+1800: "Limgrave - Stranded Graveyard",
+1001: "Chapel of Anticipation",
+604136: "Limgrave - Coastal Cave Entrance",
+604137: "Limgrave - Stormfoot Catacombs Entrance",
+604233: "Weeping Peninsula - Tombsward, Weeping Evergaol, Tombsward Cave Entrance",
 604236: "Limgrave - Church of Elleh",
 604237: "Limgrave - Agheel Lake",
-1801: "Limgrave - Stranded Graveyard",
-1001: "Chapel of Anticipation"
+604238: "Stormhill - Warmaster's Shack, Stormgate",
+604335: "Limgrave - Seaside Ruins",
+604336: "Limgrave - Agheel Lake, Dragon-Burnt Ruins",
+604337: "Limgrave - Agheel Lake North, Murkwater Cave Entrance",
+604433: "Weeping Peninsula - Castle Morne Rampart, Ailing Village Outskirts",
+604436: "Limgrave - Waypoint Ruins",
+609900: "Unknown region"
 }
