@@ -30,6 +30,12 @@ class SettingsRepository:
                         found_path = str(save_file)
                         
         return found_path
+    
+    def set_event_logging(self, val: bool):
+        self.settings.setValue("event_logging", val)
+
+    def get_event_logging(self) -> bool:
+        return self.settings.value("event_logging", defaultValue=False, type=bool) # pyright: ignore[reportReturnType]
 
     def save_session(self, path: str, slot: int):
         """Saves the current file and slot to registry."""

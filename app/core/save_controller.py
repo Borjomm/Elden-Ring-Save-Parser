@@ -3,17 +3,19 @@ from .app_state import AppStore, UpdateType, DataSource, EventBus, MemoryViewSta
 from app.parser.adapter import ParserAdapter, FileLockedError, ParserError
 from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
+from app.infrastructure.event_tracker import EventTracker
 from app.parser.live_watcher import LiveWatcherService
 from app.data.containers import Delta
 from app.data.consts import GAME_LOADED_FLAG
 
 class SaveController:
-    def __init__(self, store: AppStore, adapter: ParserAdapter, file_watcher: FileWatcherService, live_watcher: LiveWatcherService, settings: SettingsRepository, dispatcher: EventBus):
+    def __init__(self, store: AppStore, adapter: ParserAdapter, file_watcher: FileWatcherService, live_watcher: LiveWatcherService, settings: SettingsRepository, event_tracker: EventTracker, dispatcher: EventBus):
         self.store = store
         self.adapter = adapter
         self.file_watcher = file_watcher
         self.live_watcher = live_watcher
         self.settings = settings
+        self.event_tracker = event_tracker
         self.dispatcher = dispatcher
         
         # Connect the watcher to our internal handler
@@ -63,7 +65,8 @@ class SaveController:
                 previous_character=self.store.state.current_character,
                 current_character=updated_data
             )
-
+            if self.settings.get_event_logging():
+                self.event_tracker.display_deltas(delta_list)
             self.dispatcher.dispatch_deltas(delta_list)
         else:
             print("[MEMORY VIEWER]", "SWITCHED TO", "GAME" if memory_status else "MENU")

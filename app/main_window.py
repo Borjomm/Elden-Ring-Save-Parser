@@ -5,6 +5,7 @@ from functools import partial
 from app.widgets.file_io_widget import FileIOWidget
 from app.widgets.boss_tree import BossWindow
 from app.widgets.graces_tree import GraceWindow
+from app.widgets.event_editor import EventEditor
 from app.util import utils
 from app.core.app_state import AppStore, AppState, EventBus, DataSource
 from app.core.save_controller import SaveController
@@ -27,7 +28,6 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
 
         # 1.5 Menu
-        self._make_menu()
 
         # 2. File Selection Area (Top)
         # We pass the controller so it can trigger "Open File"
@@ -44,7 +44,10 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.boss_tab, "Bosses")
         self.grace_tab = GraceWindow(self.db_conn, self.store, self.dispatcher)
         self.tabs.addTab(self.grace_tab, "Graces")
-        self.tabs.addTab(QWidget(), "???")
+        self.event_editor_tab = EventEditor(self.db_conn, self.controller)
+        self.tabs.addTab(self.event_editor_tab, "Events")
+
+        self._make_menu()
 
         # 4. Status Bar (To show errors or loading states)
         self.status_bar = QStatusBar()
@@ -83,17 +86,28 @@ class MainWindow(QMainWindow):
         else:   
             self.status_bar.showMessage("Ready. Please select a save file.")
 
-
+    def _clear_tmp_directory(self):
+        self.event_editor_tab.temp_db_init = False
+        utils.regenerate_temp()
 
     def _make_menu(self):
+ 
         self.menu = QMenuBar()
         self.file_menu = self.menu.addMenu("File")
         self.load_recent = self.file_menu.addMenu("Load Recent")
-
         self._regenerate_recent_menu()
-
         exit_action = utils.make_action(self, "Exit", self.close, "Ctrl+Q")
         self.file_menu.addAction(exit_action)
+
+        self.tool_menu = self.menu.addMenu("Tools")
+        event_tracker_toggle = utils.make_action(self, "Toggle event logging", self.controller.settings.set_event_logging)
+        event_tracker_toggle.setCheckable(True)
+        event_tracker_toggle.setChecked(self.controller.settings.get_event_logging())
+        event_tracker_save = utils.make_action(self, "Save logged events to database", self.event_editor_tab.save_session_to_temp_db)
+        event_tracker_regen_temp = utils.make_action(self, "Clear 'tmp' directory", self._clear_tmp_directory)
+        self.tool_menu.addAction(event_tracker_toggle)
+        self.tool_menu.addAction(event_tracker_save)
+        self.tool_menu.addAction(event_tracker_regen_temp)
 
         self.setMenuBar(self.menu)
 

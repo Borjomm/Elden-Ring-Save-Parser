@@ -97,7 +97,6 @@ class GraceWindow(BaseObserverTab):
 
         self.base_model.layoutAboutToBeChanged.emit()
         for event_id, grace_name, region,  dlc, _ in rows:
-            print(event_id, grace_name, region, dlc)
             if region not in region_items and region:
                 region_item = RegionItem(self.dispatcher, region)
                 root_item.appendRow(region_item)
