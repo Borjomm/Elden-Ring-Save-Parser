@@ -27,7 +27,7 @@ class EventTracker(QObject):
     new_change_recorded = Signal(object)
     def __init__(self, db_connection: Connection):
         super().__init__()
-        with open("D:\\Python\\save_parser\\extraction&testing\\util\\item_dict.json", "r", encoding="utf-8") as f:
+        with open("app\\item_dict.json", "r", encoding="utf-8") as f:
             self.item_dict = json.load(f)
 
         self.db_connection = db_connection
