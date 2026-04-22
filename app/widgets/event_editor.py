@@ -1,4 +1,3 @@
-from app.data.containers import DisplayedDeltaChange
 from datetime import datetime
 from sqlite3 import Connection
 
@@ -7,7 +6,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QPixmap, QImage
 from PySide6.QtCore import Qt
 
 from app.core.save_controller import SaveController
-from app.data.containers import EventFlag
+from app.data.containers import EventFlag, DisplayedDeltaChange
 from app.util.db import save_rows, init_temp_db
 from app.data.consts import TEMP_DB_PATH
 
@@ -92,6 +91,7 @@ class DetailEditor(QWidget):
         self.category.clear()
         self.tags.clear()
         self.image_label.clear()
+        self.image_label.setText("No Image Loaded")
         self.toggle_edit(False)
 
     def submit(self):

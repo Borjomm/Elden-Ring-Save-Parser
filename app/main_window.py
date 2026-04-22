@@ -36,9 +36,6 @@ class MainWindow(QMainWindow):
 
         # 3. Content Tabs
         self.tabs = QTabWidget()
-        # self.stats_tab = StatsTab(self.store)
-        # self.checklist_tab = ChecklistTab(self.store, self.db_conn)
-        # self.tabs.addTab(self.stats_tab, "Stats")
         layout.addWidget(self.tabs)
         self.boss_tab = BossWindow(self.db_conn, self.store, self.dispatcher)
         self.tabs.addTab(self.boss_tab, "Bosses")
@@ -80,7 +77,7 @@ class MainWindow(QMainWindow):
         elif state.last_error:
             self.status_bar.showMessage(f"Error: {state.last_error}")
         elif state.data_source == DataSource.LIVE_MEMORY:
-            self.status_bar.showMessage(f"Watching: Elden Ring memory")
+            self.status_bar.showMessage("Watching: Elden Ring memory")
         elif state.current_path and state.data_source == DataSource.SAVE_FILE:
             self.status_bar.showMessage(f"Watching: {state.current_path}")
         else:   

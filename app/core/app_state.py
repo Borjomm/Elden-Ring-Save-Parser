@@ -4,7 +4,7 @@ from enum import Enum, auto
 from PySide6.QtCore import QObject, Signal
 
 from app.parser.wrapper import CharacterData, CharacterSelection
-from app.data.containers import Delta
+from app.data.containers import EventDelta
 
 class DataSource(Enum):
     NONE = auto()
@@ -34,7 +34,6 @@ class AppState:
     previous_character: Optional[CharacterData] = None
     current_character: Optional[CharacterData] = None
     recent_files: list[tuple[str, int]] = field(default_factory=list)
-    deltas: list[tuple[int, bool]] = field(default_factory=list)
     
     
     # App Status
@@ -83,12 +82,10 @@ class EventBus(QObject):
             self._subscribers[event_id] = []
         self._subscribers[event_id].append(callback)
 
-    def dispatch_deltas(self, deltas: list[Delta]):
+    def dispatch_deltas(self, deltas: list[EventDelta]):
         for delta in deltas:
             # ONLY call the subscribers who care about this specific ID
             if delta.event_id in self._subscribers:
                 for callback in self._subscribers[delta.event_id]:
                     callback(delta.val)
         self.cycle_finished.emit()
-
-event_bus = EventBus()

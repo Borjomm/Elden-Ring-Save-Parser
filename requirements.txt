@@ -7,6 +7,3 @@ watchdog>=3.0.0
 # Live RAM Tracking / Process management
 psutil>=5.9.0
 pymem>=1.13.0
-
-# Utilities
-pathlib

@@ -1,4 +1,5 @@
 import ctypes
+from app.data.consts import MAX_COMMON_ITEMS_INVENTORY, MAX_COMMON_ITEMS_STORAGE, MAX_KEY_ITEMS_INVENTORY, MAX_KEY_ITEMS_STORAGE, EVENT_POOL_SIZE
 
 # A base class to ensure all our structs use 1-byte packing,
 # which is the equivalent of '#pragma pack(1)' in C.
@@ -101,17 +102,17 @@ class CCharacterData(PackedStructure):
         ("player", CPlayer),
         ("equippedItemsGaHandles", CEquippedItemsGaHandles),
         ("commonItemInventoryCount", ctypes.c_uint),
-        ("commonItemsInventory", CInventoryHeld * 2688),
+        ("commonItemsInventory", CInventoryHeld * MAX_COMMON_ITEMS_INVENTORY),
         ("keyItemInventoryCount", ctypes.c_uint),
-        ("keyItemsInventory", CInventoryHeld * 384),
+        ("keyItemsInventory", CInventoryHeld * MAX_KEY_ITEMS_INVENTORY),
         ("commonItemStorageCount", ctypes.c_uint),
-        ("commonItemsStorage", CInventoryHeld * 1920),
+        ("commonItemsStorage", CInventoryHeld * MAX_COMMON_ITEMS_STORAGE),
         ("keyItemStorageCount", ctypes.c_uint),
-        ("keyItemsStorage", CInventoryHeld * 128),
+        ("keyItemsStorage", CInventoryHeld * MAX_KEY_ITEMS_STORAGE),
         ("allItemsCount", ctypes.c_uint),
         ("allItems", ctypes.c_uint * 7000),
         ("totalDeathsCount", ctypes.c_uint),
-        ("eventFlags", ctypes.c_ubyte * 1833375),
+        ("eventFlags", ctypes.c_ubyte * EVENT_POOL_SIZE),
         ("dlc", ctypes.c_ushort)
     ]
 

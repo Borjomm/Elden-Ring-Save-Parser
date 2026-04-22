@@ -5,7 +5,7 @@ from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
 from app.infrastructure.event_tracker import EventTracker
 from app.parser.live_watcher import LiveWatcherService
-from app.data.containers import Delta
+from app.data.containers import EventDelta
 from app.data.consts import GAME_LOADED_FLAG
 
 class SaveController:
@@ -20,7 +20,7 @@ class SaveController:
         
         # Connect the watcher to our internal handler
         self.file_watcher.file_changed.connect(self._on_file_modified)
-        self.live_watcher.delta_detected.connect(self._on_memory_modified)
+        self.live_watcher.event_delta_detected.connect(self._on_memory_modified)
 
     def toggle_live_mode(self, enabled: bool) -> bool:
         """Action: UI toggles the 'Live Mode' switch."""
@@ -44,7 +44,7 @@ class SaveController:
             
             return True
 
-    def _on_memory_modified(self, delta_list: list[Delta]):
+    def _on_memory_modified(self, delta_list: list[EventDelta]):
         """Trigger: The LiveWatcher detected changes in RAM."""
         state = self.store.state
         if not state.current_character:

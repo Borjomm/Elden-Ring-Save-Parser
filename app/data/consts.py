@@ -21,6 +21,14 @@ QT_GREEN = QColor(0, 100, 0, 150)
 QT_RED = QColor(130, 0, 0, 150)
 QT_YELLOW = QColor(160, 120, 0, 150)
 
+# Inventory
+MAX_COMMON_ITEMS_INVENTORY = 2688
+MAX_KEY_ITEMS_INVENTORY = 384
+MAX_COMMON_ITEMS_STORAGE = 1920
+MAX_KEY_ITEMS_STORAGE = 128
+
+# Flags
+EVENT_POOL_SIZE = 1833375
 GAME_LOADED_FLAG = 50
 
 REGION_FLAGS = [
@@ -42,8 +50,9 @@ REGION_FLAGS = [
 ]
 
 REGION_MAP = {
-1800: "Limgrave - Stranded Graveyard",
+1000: "Stormveil Castle",
 1001: "Chapel of Anticipation",
+1800: "Limgrave - Stranded Graveyard",
 604136: "Limgrave - Coastal Cave Entrance",
 604137: "Limgrave - Stormfoot Catacombs Entrance",
 604233: "Weeping Peninsula - Tombsward, Weeping Evergaol, Tombsward Cave Entrance",

@@ -1,5 +1,9 @@
 from dataclasses import dataclass, replace
 import os
+import ctypes
+
+from app.parser.models import CInventoryHeld
+from app.data.consts import MAX_COMMON_ITEMS_INVENTORY, MAX_COMMON_ITEMS_STORAGE, MAX_KEY_ITEMS_INVENTORY, MAX_KEY_ITEMS_STORAGE
 
 @dataclass(frozen=True)
 class EventFlag:
@@ -33,7 +37,7 @@ class DisplayedDeltaChange:
             yield flag
 
     def __str__(self):
-        s = f"{self.timestamp}: Delta Change with {len(self.flags)} flag toggles\nScreenshot: {os.path.abspath(self.screenshot_path)}\n"
+        s = f"{self.timestamp}: EventDelta Change with {len(self.flags)} flag toggles\nScreenshot: {os.path.abspath(self.screenshot_path)}\n"
         s += '\n'.join(f"\t{str(flag)}" for flag in self.flags)
         return s
     
@@ -41,7 +45,11 @@ class DisplayedDeltaChange:
         return len(self.flags)
 
 @dataclass(frozen=True)
-class Delta:
+class EventDelta:
     event_id: int
-    offset: int
+    val: bool
+
+@dataclass(frozen=True)
+class HasItemDelta:
+    item_id: int
     val: bool

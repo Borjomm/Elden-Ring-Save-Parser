@@ -2,7 +2,7 @@ from sqlite3 import Connection
 import time
 from pathlib import Path
 from datetime import datetime
-from app.data.containers import Delta, EventFlag, DisplayedDeltaChange
+from app.data.containers import EventDelta, EventFlag, DisplayedDeltaChange
 from app.data.consts import REGION_FLAGS, REGION_MAP
 from app.util.utils import make_small_screenshot_and_save
 from PySide6.QtCore import QObject, Signal
@@ -70,7 +70,7 @@ class EventTracker(QObject):
                 event_flag = EventFlag(flag, "Unknown flag", "Unknown", "",  created_at, val)
         return event_flag
 
-    def display_deltas(self, deltas: list[Delta]):
+    def display_deltas(self, deltas: list[EventDelta]):
         created_at = int(time.time() * 1000)
         name = screenshot_name(created_at)
         path = str(Path("tmp", "screenshots", name))
