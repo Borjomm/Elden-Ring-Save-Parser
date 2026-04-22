@@ -6,9 +6,9 @@ from app.util.animation import flash_item
 from app.data.consts import QT_GREEN, QT_RED, QT_YELLOW
 
 class ExpandableItem(QStandardItem):
-    def __init__(self, dispatcher: EventBus, name: str = ""):
+    def __init__(self, ui_callback, name: str = ""):
         super().__init__(name)
-        self.dispatcher = dispatcher
+        self.ui_callback = ui_callback
 
     def flash(self, color: QColor, duration: int = 2000):
         flash_item(self.model(), self.index(), color, duration) #TODO: Maybe add entire flash_item logic here?
@@ -17,11 +17,12 @@ class ExpandableItem(QStandardItem):
         parent = self.parent()
         if isinstance(parent, ExpandableItem):
             parent.request_expand()
-        self.dispatcher.request_expansion.emit(self)
+        self.ui_callback(self)
 
 class EventDisplayItem(ExpandableItem):
-    def __init__(self, dispatcher: EventBus, name: str, event_id: int):
-        super().__init__(dispatcher, name)
+    def __init__(self, ui_callback, dispatcher: EventBus, name: str, event_id: int):
+        super().__init__(ui_callback, name)
+        self.dispatcher = dispatcher
         self.setEditable(False)
         self.setCheckable(False)
         self.setCheckState(Qt.CheckState.Unchecked)
@@ -47,8 +48,9 @@ class EventDisplayItem(ExpandableItem):
 
 
 class RegionItem(ExpandableItem):
-    def __init__(self, dispatcher: EventBus, region_name: str):
-        super().__init__(dispatcher)
+    def __init__(self, ui_callback, dispatcher: EventBus, region_name: str):
+        super().__init__(ui_callback)
+        self.dispatcher = dispatcher
         self.setEditable(False)
         self._added = False
         self._removed = False
@@ -73,15 +75,15 @@ class RegionItem(ExpandableItem):
 
 
 class BossItem(EventDisplayItem):
-    def __init__(self, dispatcher: EventBus, boss_name: str, event_id: int, remembrance: bool, dlc: bool, wiki_link: str):
-        super().__init__(dispatcher, boss_name, event_id)
+    def __init__(self, ui_callback, dispatcher: EventBus, boss_name: str, event_id: int, remembrance: bool, dlc: bool, wiki_link: str):
+        super().__init__(ui_callback, dispatcher, boss_name, event_id)
         self.remembrance = remembrance
         self.dlc = dlc
         self.link = wiki_link
 
 class GraceItem(EventDisplayItem):
-    def __init__(self, dispatcher: EventBus, grace_name: str, event_id: int, dlc: bool):
-        super().__init__(dispatcher, grace_name, event_id)
+    def __init__(self, ui_callback, dispatcher: EventBus, grace_name: str, event_id: int, dlc: bool):
+        super().__init__(ui_callback, dispatcher, grace_name, event_id)
         self.dlc = dlc
 
         

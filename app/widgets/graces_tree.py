@@ -75,7 +75,6 @@ class GraceWindow(BaseObserverTab):
 
         # Populate the model
         self.populate_model()
-        self.dispatcher.request_expansion.connect(self._handle_minor_expansion)
         self.update_all_region_counts()
 
         # Context Menu
@@ -98,7 +97,7 @@ class GraceWindow(BaseObserverTab):
         self.base_model.layoutAboutToBeChanged.emit()
         for event_id, grace_name, region,  dlc, _ in rows:
             if region not in region_items and region:
-                region_item = RegionItem(self.dispatcher, region)
+                region_item = RegionItem(self._handle_minor_expansion, self.dispatcher, region)
                 root_item.appendRow(region_item)
                 region_items[region] = region_item
             if not region:
@@ -106,6 +105,7 @@ class GraceWindow(BaseObserverTab):
             else:
                 parent_item = region_items[region]
             grace_item = GraceItem(
+                ui_callback=self._handle_minor_expansion,
                 dispatcher=self.dispatcher,
                 grace_name=grace_name,
                 event_id=event_id,
@@ -138,7 +138,7 @@ class GraceWindow(BaseObserverTab):
     def _handle_minor_expansion(self, item: QStandardItem):
         """Logic to expand region if a grace is killed while folder is closed."""
         region_proxy_index = self.proxy_model.mapFromSource(item.index())
-        if region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
+        if self.isVisible() and region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
             self.tree.expand(region_proxy_index)
 
     def _handle_region_flash(self, region_item, added, removed):

@@ -36,6 +36,12 @@ class SettingsRepository:
 
     def get_event_logging(self) -> bool:
         return self.settings.value("event_logging", defaultValue=False, type=bool) # pyright: ignore[reportReturnType]
+    
+    def set_item_logging(self, val: bool):
+        self.settings.setValue("item_logging", val)
+
+    def get_item_logging(self) -> bool:
+        return self.settings.value("item_logging", defaultValue=False, type=bool) # pyright: ignore[reportReturnType]
 
     def save_session(self, path: str, slot: int):
         """Saves the current file and slot to registry."""

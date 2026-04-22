@@ -17,7 +17,7 @@ class FileWatcherService(QObject):
     Infrastructure layer service for file monitoring.
     Uses Watchdog for OS events and a QTimer for debouncing.
     """
-    file_changed = Signal(str)
+    file_changed = Signal()
     _raw_file_changed = Signal()
 
     def __init__(self):
@@ -68,4 +68,4 @@ class FileWatcherService(QObject):
     def _emit_change(self):
         """Called only after 500ms of silence on the file."""
         if self._target_path:
-            self.file_changed.emit(self._target_path)
+            self.file_changed.emit()

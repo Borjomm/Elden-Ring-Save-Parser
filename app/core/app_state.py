@@ -70,7 +70,6 @@ class AppStore(QObject):
 
 class EventBus(QObject):
     cycle_finished = Signal()
-    request_expansion = Signal(object)
 
     def __init__(self):
         super().__init__()
@@ -82,7 +81,7 @@ class EventBus(QObject):
             self._subscribers[event_id] = []
         self._subscribers[event_id].append(callback)
 
-    def dispatch_deltas(self, deltas: list[EventDelta]):
+    def dispatch_event_deltas(self, deltas: list[EventDelta]):
         for delta in deltas:
             # ONLY call the subscribers who care about this specific ID
             if delta.event_id in self._subscribers:

@@ -1,5 +1,6 @@
 from .models import *
 from app.data.block import PYTHON_BLOCK_MAP
+from app.data.inventory_state import extract_item_id_set
 
 class CharacterSelection:
     def __init__(self, c_struct: CCharacterSelection):
@@ -302,18 +303,13 @@ class CharacterData:
         self._header = None
         self._ga_items_dict = None
         self._equipped_ga_handles = None
-        self._item_set = set()
-
+        self._item_set: set[int] | None = None
 
     @property
     def header(self) -> CharacterHeader:
         if not self._header:
             self._header = CharacterHeader(self._struct.characterHeader)
         return self._header
-    
-    @property
-    def ga_item_count(self) -> int:
-        return self._struct.gaItemCount
     
     @property
     def player(self) -> Player:
@@ -386,26 +382,12 @@ class CharacterData:
     
     def has_dlc(self) -> bool:
         return self._struct.dlc != 0
-    
-    def check_item_set(self) -> None:
-        if not self._item_set:
-            self._item_set = {self._struct.allItems[i] for i in range(self.all_items_count)}
-    
-    def get_items(self) -> set[int]:
-        self.check_item_set()
-        return self._item_set
-    
+
     def has_item(self, item_id: int) -> bool:
-        self.check_item_set()
+        """Stability: Checks if the player owns the item anywhere (Inv or Storage)."""
+        if self._item_set is None:
+            self._item_set = extract_item_id_set(self._struct)
+        
         return item_id in self._item_set
-    
-    def clone_with_flags(self, new_flag_bytes: bytes) -> 'CharacterData':
-        """Creates a copy of the character data but with updated event flags."""
-        # This keeps the name, level, and items the same, but swaps the flag buffer
-        # Note: If you want to update HP/Souls too, you'd add that here
-        import copy
-        new_obj = copy.copy(self) 
-        new_obj._flags = new_flag_bytes
-        return new_obj
     
     

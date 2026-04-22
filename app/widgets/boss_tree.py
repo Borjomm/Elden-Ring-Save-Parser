@@ -77,7 +77,6 @@ class BossWindow(BaseObserverTab):
 
         # Populate the model
         self.populate_model()
-        self.dispatcher.request_expansion.connect(self._handle_minor_expansion)
         self.update_all_region_counts()
 
         # Context Menu
@@ -100,12 +99,13 @@ class BossWindow(BaseObserverTab):
         self.base_model.layoutAboutToBeChanged.emit()
         for event_id, boss_name, region, remembrance, dlc, link in rows:
             if region not in region_items:
-                region_item = RegionItem(self.dispatcher, region)
+                region_item = RegionItem(self._handle_minor_expansion, self.dispatcher, region)
                 root_item.appendRow(region_item)
                 region_items[region] = region_item
 
             parent_item = region_items[region]
             boss_item = BossItem(
+                self._handle_minor_expansion,
                 dispatcher=self.dispatcher,
                 boss_name=boss_name,
                 event_id=event_id,
@@ -140,7 +140,7 @@ class BossWindow(BaseObserverTab):
     def _handle_minor_expansion(self, item: QStandardItem):
         """Logic to expand region if a boss is killed while folder is closed."""
         region_proxy_index = self.proxy_model.mapFromSource(item.index())
-        if region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
+        if self.isVisible() and region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
             self.tree.expand(region_proxy_index)
 
     def _handle_region_flash(self, region_item, added, removed):

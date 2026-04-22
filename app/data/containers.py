@@ -1,9 +1,5 @@
 from dataclasses import dataclass, replace
 import os
-import ctypes
-
-from app.parser.models import CInventoryHeld
-from app.data.consts import MAX_COMMON_ITEMS_INVENTORY, MAX_COMMON_ITEMS_STORAGE, MAX_KEY_ITEMS_INVENTORY, MAX_KEY_ITEMS_STORAGE
 
 @dataclass(frozen=True)
 class EventFlag:
@@ -53,3 +49,9 @@ class EventDelta:
 class HasItemDelta:
     item_id: int
     val: bool
+
+    def __str__(self):
+        return ("GOT " if self.val else "LOST ") + hex(self.item_id)
+    
+    def __repr__(self):
+        return ("GOT " if self.val else "LOST ") + hex(self.item_id)

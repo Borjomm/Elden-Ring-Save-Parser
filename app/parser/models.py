@@ -6,6 +6,12 @@ from app.data.consts import MAX_COMMON_ITEMS_INVENTORY, MAX_COMMON_ITEMS_STORAGE
 class PackedStructure(ctypes.Structure):
     _pack_ = 1
 
+class CEventDelta(PackedStructure):
+    _fields_ = [
+        ("event_id", ctypes.c_uint32),
+        ("changed_to", ctypes.c_bool)
+    ]
+
 class CCharacterSelection(PackedStructure):
     _fields_ = [
         ("characterName", ctypes.c_wchar * 16),

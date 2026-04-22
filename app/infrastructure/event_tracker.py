@@ -1,8 +1,9 @@
 from sqlite3 import Connection
 import time
+import json
 from pathlib import Path
 from datetime import datetime
-from app.data.containers import EventDelta, EventFlag, DisplayedDeltaChange
+from app.data.containers import EventDelta, EventFlag, DisplayedDeltaChange, HasItemDelta
 from app.data.consts import REGION_FLAGS, REGION_MAP
 from app.util.utils import make_small_screenshot_and_save
 from PySide6.QtCore import QObject, Signal
@@ -26,6 +27,9 @@ class EventTracker(QObject):
     new_change_recorded = Signal(object)
     def __init__(self, db_connection: Connection):
         super().__init__()
+        with open("D:\\Python\\save_parser\\extraction&testing\\util\\item_dict.json", "r", encoding="utf-8") as f:
+            self.item_dict = json.load(f)
+
         self.db_connection = db_connection
         cursor = self.db_connection.cursor()
         
@@ -83,6 +87,10 @@ class EventTracker(QObject):
         change = DisplayedDeltaChange(created_at, path, flags)
         print(change)
         self.new_change_recorded.emit(change)
+
+    def display_item_changes(self, deltas: list[HasItemDelta]):
+        print(f"Item deltas changed: {len(deltas)}")
+        print("\n".join(("Got: " if delta.val else "Lost: ") + self.item_dict.get(f"0x{delta.item_id:08X}", f"Unknown item (0x{delta.item_id:08X})") for delta in deltas))
 
 
 

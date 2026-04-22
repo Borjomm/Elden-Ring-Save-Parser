@@ -100,9 +100,13 @@ class MainWindow(QMainWindow):
         event_tracker_toggle = utils.make_action(self, "Toggle event logging", self.controller.settings.set_event_logging)
         event_tracker_toggle.setCheckable(True)
         event_tracker_toggle.setChecked(self.controller.settings.get_event_logging())
+        item_tracker_toggle = utils.make_action(self, "Toggle item logging", self.controller.settings.set_item_logging)
+        item_tracker_toggle.setCheckable(True)
+        item_tracker_toggle.setChecked(self.controller.settings.get_item_logging())
         event_tracker_save = utils.make_action(self, "Save logged events to database", self.event_editor_tab.save_session_to_temp_db)
         event_tracker_regen_temp = utils.make_action(self, "Clear 'tmp' directory", self._clear_tmp_directory)
         self.tool_menu.addAction(event_tracker_toggle)
+        self.tool_menu.addAction(item_tracker_toggle)
         self.tool_menu.addAction(event_tracker_save)
         self.tool_menu.addAction(event_tracker_regen_temp)
 

@@ -5,7 +5,9 @@ from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
 from app.infrastructure.event_tracker import EventTracker
 from app.parser.live_watcher import LiveWatcherService
-from app.data.containers import EventDelta
+from app.parser.state_buffer import DeltaProvider
+from app.parser.models import CCharacterData
+from app.parser.wrapper import CharacterData
 from app.data.consts import GAME_LOADED_FLAG
 
 class SaveController:
@@ -17,10 +19,11 @@ class SaveController:
         self.settings = settings
         self.event_tracker = event_tracker
         self.dispatcher = dispatcher
+        self.delta_provider = DeltaProvider()
+
         
         # Connect the watcher to our internal handler
         self.file_watcher.file_changed.connect(self._on_file_modified)
-        self.live_watcher.event_delta_detected.connect(self._on_memory_modified)
 
     def toggle_live_mode(self, enabled: bool) -> bool:
         """Action: UI toggles the 'Live Mode' switch."""
@@ -29,9 +32,9 @@ class SaveController:
             # 1. Stop watching file
             self.file_watcher.stop()
             # 2. Try to attach to Elden Ring memory
-            if self.live_watcher.start(self.make_memory_scan):
+            if self.live_watcher.start(self.automatic_parse):
                 self.store.update_state(data_source = DataSource.LIVE_MEMORY)
-                self.make_memory_scan(major=True)
+                self.automatic_parse(force_major=True)
                 return True
             else:
                 self.store.update_state(last_error="Could not find Elden Ring process.", data_source = DataSource.NONE, attach_failed=True, memory_view_status=MemoryViewStatus.NONE)
@@ -44,61 +47,56 @@ class SaveController:
             
             return True
 
-    def _on_memory_modified(self, delta_list: list[EventDelta]):
-        """Trigger: The LiveWatcher detected changes in RAM."""
+
+    def automatic_parse(self, force_major: bool = False):
         state = self.store.state
+
         if not state.current_character:
             return
-
-        # 1. Get the latest pool from the C buffer
-        new_flags = self.live_watcher.get_current_flags_bytes()
         
-        # 2. Create an updated CharacterData snapshot
-        updated_data = state.current_character.clone_with_flags(new_flags)
-
-        memory_status = updated_data.get_event_state(GAME_LOADED_FLAG)
-
-        new_status = MemoryViewStatus.IN_GAME if memory_status else MemoryViewStatus.MENU
-
-        if new_status == state.memory_view_status:
-            self.store.update_state(
-                previous_character=self.store.state.current_character,
-                current_character=updated_data
-            )
-            if self.settings.get_event_logging():
-                self.event_tracker.display_deltas(delta_list)
-            self.dispatcher.dispatch_deltas(delta_list)
-        else:
-            print("[MEMORY VIEWER]", "SWITCHED TO", "GAME" if memory_status else "MENU")
-            self.store.update_state(
-                previous_character=None,
-                current_character=updated_data,
-                memory_view_status=new_status,
-                update_type=UpdateType.MAJOR
-            )
-            self.store.update_state(update_type=UpdateType.NONE)
-
-
-
-
-    def make_memory_scan(self, major: bool = False):
-        state = self.store.state
-
-        if not state.current_character or state.data_source != DataSource.LIVE_MEMORY:
-            return
         try:
-            self.live_watcher.check_for_changes(supress_signal=major)
+            if state.data_source == DataSource.LIVE_MEMORY:
+                updated_data = self.live_watcher.check_for_changes()
+                wrapped_data = CharacterData(updated_data)
+                memory_status = wrapped_data.get_event_state(GAME_LOADED_FLAG)
+                new_status = MemoryViewStatus.IN_GAME if memory_status else MemoryViewStatus.MENU
+                major = force_major or new_status != state.memory_view_status
+                if major:
+                    print("[MEMORY VIEWER]", "LOADED IN GAME" if memory_status else "LOADED IN MENU")
+            elif state.data_source == DataSource.SAVE_FILE and state.current_path and state.current_slot:
+                updated_data = self._reload_with_retry(state.current_path, state.current_slot)
+                wrapped_data = CharacterData(updated_data)
+                major = force_major
+                new_status = MemoryViewStatus.MENU
+            else:
+                raise RuntimeError("Tried parsing without a data source!")
+            self.delta_provider.update(updated_data)
             if major:
-                updated_data = state.current_character.clone_with_flags(self.live_watcher.get_current_flags_bytes())
-                memory_status = updated_data.get_event_state(GAME_LOADED_FLAG)
-                print("[MEMORY VIEWER]", "LOADED IN GAME" if memory_status else "LOADED IN MENU")
+
                 self.store.update_state(
                     previous_character=None,
-                    current_character=updated_data,
-                    update_type=UpdateType.MAJOR,
-                    memory_view_status=MemoryViewStatus.IN_GAME if memory_status else MemoryViewStatus.MENU
+                    current_character=wrapped_data,
+                    memory_view_status = new_status,
+                    update_type=UpdateType.MAJOR
                 )
-                self.store.update_state(update_type=UpdateType.NONE)
+            else:
+
+                event_deltas = self.delta_provider.get_event_deltas()
+                if event_deltas:
+                    self.dispatcher.dispatch_event_deltas(event_deltas)
+                    if self.settings.get_event_logging():
+                        self.event_tracker.display_deltas(event_deltas)
+                item_deltas = self.delta_provider.get_item_deltas()
+                if item_deltas and self.settings.get_item_logging():
+                    self.event_tracker.display_item_changes(item_deltas)
+                
+                self.store.update_state(
+                    previous_character=self.store.state.current_character,
+                    current_character=wrapped_data,
+                    update_type=UpdateType.MINOR
+                )
+                
+            self.store.update_state(update_type=UpdateType.NONE)
         except ParserError as e:
             self.store.update_state(
                 last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE, attach_failed=True, memory_view_status=MemoryViewStatus.NONE
@@ -147,11 +145,12 @@ class SaveController:
         
         try:
             data = self.adapter.load_character(path, index)
+            self.delta_provider.update(data)
             
             self.store.update_state(
                 current_slot=index,
                 previous_character=None,
-                current_character=data,
+                current_character=CharacterData(data),
                 update_type = UpdateType.STARTUP if startup else UpdateType.MAJOR
             )
             
@@ -163,7 +162,7 @@ class SaveController:
         except ParserError as e:
             self.store.update_state(last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE, attach_failed = True)
 
-    def _on_file_modified(self, filepath: str):
+    def _on_file_modified(self):
         """Trigger: The FileWatcher detected a change on disk."""
         # Only reload if we actually have a slot selected
         from PySide6.QtCore import QTimer
@@ -171,28 +170,22 @@ class SaveController:
         if state.current_slot is None:
             return
 
-        print(f"Auto-reload triggered for: {filepath}")
-        QTimer.singleShot(0, lambda: self._reload_with_retry(filepath, state.current_slot)) # type: ignore
+        print(f"Auto-reload triggered for: {state.current_path}")
+        QTimer.singleShot(0, lambda: self._reload_with_retry(state.current_path, state.current_slot)) # type: ignore
         
 
-    def _reload_with_retry(self, path: str, slot: int, retries=5):
+    def _reload_with_retry(self, path: str, slot: int, retries=5) -> CCharacterData:
         """Internal: Elden Ring often locks the file while writing."""
         for _ in range(retries):
             try:
                 # Use the adapter to get fresh data
-                data = self.adapter.load_character(path, slot)
-                
-                # Update state (UI will auto-refresh)
-                self.store.update_state(previous_character = self.store.state.current_character, current_character=data, last_error=None, update_type = UpdateType.MINOR)
-                self.store.update_state(update_type = UpdateType.NONE)
-                return 
+                return self.adapter.load_character(path, slot)
                 
             except FileLockedError:
                 # Wait 200ms and try again
                 time.sleep(0.2)
-            except ParserError as e:
-                self.store.update_state(last_error=f"Auto-reload failed: {e}", update_type = UpdateType.NONE)
-                break
+        raise ParserError("Auto-reload failed!")
+
 
     def load_last_session(self, startup: bool = True):
         """Action: Called on App Startup to restore previous state."""
