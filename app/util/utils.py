@@ -3,13 +3,16 @@ from pathlib import Path
 import time
 import shutil
 from PySide6.QtWidgets import QWidget, QComboBox, QVBoxLayout, QLabel, QMessageBox
-from PySide6.QtGui import QGuiApplication, QAction, QKeySequence
+from PySide6.QtGui import QGuiApplication, QAction, QKeySequence, QCursor
 from PySide6.QtCore import QObject, Qt
 
-def get_spawn_coordinates(width: int, height: int):
-    screen = QGuiApplication.primaryScreen()  # Получаем основной экран
+def get_spawn_coordinates(scale: float = 0.6):
+    screen = QGuiApplication.screenAt(QCursor.pos())  # Получаем основной экран
+    if not screen:
+        screen = QGuiApplication.primaryScreen()
     wwidth = screen.geometry().width()  # Получаем геометрию экрана
     wheight = screen.geometry().height()
+    width, height = int(wwidth * scale), int(wheight * scale)
     geometry = ((wwidth-width)//2, (wheight-height)//2, width, height)
     return geometry
 

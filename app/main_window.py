@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
         self._last_recent_list = self.controller.settings.get_recent_list()
         
         self.setWindowTitle("Elden Ring Save Inspector")
-        self.setGeometry(*utils.get_spawn_coordinates(1920, 1080))
+        self.setGeometry(*utils.get_spawn_coordinates())
 
         # 1. Main Layout
         central_widget = QWidget()
