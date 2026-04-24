@@ -3,8 +3,10 @@ import time
 import json
 from pathlib import Path
 from datetime import datetime
+from app.parser.wrapper import CharacterData
 from app.data.containers import EventDelta, EventFlag, DisplayedDeltaChange, HasItemDelta
 from app.data.consts import REGION_FLAGS, REGION_MAP
+from app.data.inventory_state import extract_item_id_set, get_item_name
 from app.util.utils import make_small_screenshot_and_save
 from PySide6.QtCore import QObject, Signal
 
@@ -28,7 +30,7 @@ class EventTracker(QObject):
     def __init__(self, db_connection: Connection):
         super().__init__()
         with open("app\\item_dict.json", "r", encoding="utf-8") as f:
-            self.item_dict = json.load(f)
+            self.item_dict = {int(k): v for k, v in json.load(f).items()}
 
         self.db_connection = db_connection
         cursor = self.db_connection.cursor()
@@ -88,9 +90,26 @@ class EventTracker(QObject):
         print(change)
         self.new_change_recorded.emit(change)
 
+    def get_item_type(self, item_id: int) -> str:
+        category_mask = item_id & 0xF0000000
+        
+        if category_mask == 0x00000000: return "Weapon/Shield"
+        if category_mask == 0x10000000: return "Armor"
+        if category_mask == 0x20000000: return "Talisman"
+        if category_mask == 0x40000000: return "Good/KeyItem"
+        if category_mask == 0x80000000: return "Ash of War"
+        
+        return "Unknown"
+
     def display_item_changes(self, deltas: list[HasItemDelta]):
         print(f"Item deltas changed: {len(deltas)}")
-        print("\n".join(("Got: " if delta.val else "Lost: ") + self.item_dict.get(f"0x{delta.item_id:08X}", f"Unknown item (0x{delta.item_id:08X})") for delta in deltas))
+        print("\n".join(("Got: " if delta.val else "Lost: ") + get_item_name(delta.item_id, self.item_dict) for delta in deltas))
+
+    def print_all_items(self, character: CharacterData, from_save: bool):
+        ids = extract_item_id_set(character._struct)
+        print(f"Printing from {'save' if from_save else 'memory'}:")
+        for i, item in enumerate(ids):
+            print(f"{i+1}. {get_item_name(item, self.item_dict)}")
 
 
 

@@ -95,7 +95,7 @@ class CEquippedItemsGaHandles(PackedStructure):
 
 class CInventoryHeld(PackedStructure):
     _fields_ = [
-        ("itemId", ctypes.c_uint),
+        ("gaHandle", ctypes.c_uint),
         ("quantity", ctypes.c_uint)
     ]
 

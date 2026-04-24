@@ -105,12 +105,18 @@ class MainWindow(QMainWindow):
         item_tracker_toggle.setChecked(self.controller.settings.get_item_logging())
         event_tracker_save = utils.make_action(self, "Save logged events to database", self.event_editor_tab.save_session_to_temp_db)
         event_tracker_regen_temp = utils.make_action(self, "Clear 'tmp' directory", self._clear_tmp_directory)
+        self.tool_menu.addAction(utils.make_action(self, "Print all items", self._print_all_items, "Ctrl+P"))
         self.tool_menu.addAction(event_tracker_toggle)
         self.tool_menu.addAction(item_tracker_toggle)
         self.tool_menu.addAction(event_tracker_save)
         self.tool_menu.addAction(event_tracker_regen_temp)
 
         self.setMenuBar(self.menu)
+
+    def _print_all_items(self):
+        char = self.store.state.current_character
+        if char is not None:
+            self.controller.event_tracker.print_all_items(char, self.store.state.data_source == DataSource.SAVE_FILE)
 
     def _regenerate_recent_menu(self):
         self.load_recent.clear()
