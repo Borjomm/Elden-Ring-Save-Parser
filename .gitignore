@@ -3,6 +3,9 @@ test_code/
 d2/
 tmp/
 
+Elden Ring Great Archive/*
+!Elden Ring Great Archive/public
+
 
 .venv/
 .env

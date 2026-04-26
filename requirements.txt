@@ -7,3 +7,7 @@ watchdog>=3.0.0
 # Live RAM Tracking / Process management
 psutil>=5.9.0
 pymem>=1.13.0
+
+# Wiki view
+markdown>=3.10.2
+python_frontmatter>=1.1.0

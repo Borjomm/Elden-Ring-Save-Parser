@@ -7,14 +7,20 @@ from PySide6.QtGui import QGuiApplication, QAction, QKeySequence, QCursor
 from PySide6.QtCore import QObject, Qt
 
 def get_spawn_coordinates(scale: float = 0.6):
-    screen = QGuiApplication.screenAt(QCursor.pos())  # Получаем основной экран
+    screen = QGuiApplication.screenAt(QCursor.pos())
+
     if not screen:
         screen = QGuiApplication.primaryScreen()
-    wwidth = screen.geometry().width()  # Получаем геометрию экрана
-    wheight = screen.geometry().height()
-    width, height = int(wwidth * scale), int(wheight * scale)
-    geometry = ((wwidth-width)//2, (wheight-height)//2, width, height)
-    return geometry
+
+    geo = screen.availableGeometry()
+
+    width = int(geo.width() * scale)
+    height = int(geo.height() * scale)
+
+    x = geo.x() + (geo.width() - width) // 2
+    y = geo.y() + (geo.height() - height) // 2
+
+    return x, y, width, height
 
 def make_action(parent: QObject, name: str, handler: Callable, key_sequence: Optional[str] = None) -> QAction:
     action = QAction(name, parent)
