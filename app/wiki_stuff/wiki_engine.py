@@ -7,9 +7,7 @@ from pathlib import Path
 
 class EldenWikiEngine:
     tag_pattern = re.compile(r'\{%\s*(if|elif|else|endif)(?:\s+(.*?))?\s*%\}')
-    # Pattern to find 'event:123' or 'item:456'
     condition_pattern = re.compile(r'(\w+):(\d+)')
-
     wikilink_pattern = re.compile(r'\[\[([^|\]]+)(?:\|([^\]]+))?\]\]')
 
     @classmethod
@@ -45,56 +43,66 @@ class EldenWikiEngine:
         if inner is None:
             return False
         return inner.get(v, False)
-
+    
+    @staticmethod
+    def evaluate_all(state: dict):
+        
+        return all(not category.values() for category in state.values()) or any(value for category in state.values() for value in category.values())
+    
     @classmethod
-    def _process_conditions(cls, text, state):
+    def _process_logic(cls, text, state):
         lines = text.splitlines()
         output = []
         # stack stores: [has_any_branch_fired, is_current_branch_visible]
         stack = [[False, True]] 
 
         for line in lines:
+            # Check if there is a tag on this line
             match = cls.tag_pattern.search(line)
             
             if match:
                 tag, cond = match.groups()
                 
-                if tag == "if":
-                    # Check if the condition is true AND the parent block is visible
-                    res = cls.evaluate(cond, state)
-                    active = stack[-1][1] and res
-                    stack.append([active, active])
-                
-                elif tag == "elif":
-                    parent_visible = stack[-2][1]
-                    has_fired = stack[-1][0]
-                    
-                    # Only fire if parent is visible AND no previous branch in this block fired
-                    if parent_visible and not has_fired and cls.evaluate(cond, state):
-                        stack[-1] = [True, True]
-                    else:
-                        stack[-1][1] = False
-                
-                elif tag == "else":
-                    parent_visible = stack[-2][1]
-                    has_fired = stack[-1][0]
-                    # Visible only if parent is visible and NOTHING before it fired
-                    stack[-1][1] = parent_visible and not has_fired
-                
-                elif tag == "endif":
-                    if len(stack) > 1:
-                        stack.pop()
-                
-                continue # Tags are not part of the output
+                # Determine if this is a "Standalone Block Tag" (the only thing on the line)
+                # or a "Suffix Tag" (content exists before the tag)
+                content_before = line[:match.start()].strip()
+                is_standalone = content_before == ""
 
-            # If the current branch is active, add the line to output
+                if is_standalone:
+                    # --- BLOCK LOGIC ---
+                    if tag == "if":
+                        res = cls.evaluate(cond, state)
+                        active = stack[-1][1] and res
+                        stack.append([active, active])
+                    elif tag == "elif":
+                        parent_visible, has_fired = stack[-2][1], stack[-1][0]
+                        if parent_visible and not has_fired and cls.evaluate(cond, state):
+                            stack[-1] = [True, True]
+                        else: stack[-1][1] = False
+                    elif tag == "else":
+                        parent_visible, has_fired = stack[-2][1], stack[-1][0]
+                        stack[-1][1] = parent_visible and not has_fired
+                    elif tag == "endif":
+                        if len(stack) > 1: stack.pop()
+                    
+                    continue # Do not print standalone tag lines
+                
+                else:
+                    # --- SUFFIX ONE-LINER LOGIC ---
+                    # Only process if the current block context is visible
+                    if stack[-1][1] and tag == "if":
+                        if cls.evaluate(cond, state):
+                            output.append(content_before)
+                    continue
+
+            # --- REGULAR TEXT ---
             if stack[-1][1]:
                 output.append(line)
 
         return "\n".join(output)
     
     @classmethod
-    def process(cls, text, state):
+    def process(cls, text, state, hidden_md, unlock_ids = None):
         def link_replacer(match):
             raw_target = match.group(1).strip()
             alias = match.group(2).strip() if match.group(2) else None
@@ -112,8 +120,10 @@ class EldenWikiEngine:
                 
             # We use a custom 'wiki://' protocol so PySide knows it's an internal link
             return f"[{alias}](wiki://{target})"
-        
-        text = cls._process_conditions(text, state)
+        if unlock_ids is not None and not any(cls.evaluate(cond, state) for cond in unlock_ids) or not cls.evaluate_all(state):
+            text = f"# This page is locked!\n{hidden_md}"
+        else:
+            text = cls._process_logic(text, state)
         text = cls.wikilink_pattern.sub(link_replacer, text)
 
         return markdown.markdown(text, extensions=['fenced_code', 'tables'])

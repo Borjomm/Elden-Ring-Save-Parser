@@ -14,6 +14,7 @@ class WikiDebugViewer(QWidget):
 
         # State Variables
         self.current_markdown = ""
+        self.hidden_markdown = ""
         self.current_state = {"events": {}, "items": {}}
 
         self.setup_ui()
@@ -85,6 +86,9 @@ class WikiDebugViewer(QWidget):
         # 1. Read file and strip YAML
         post = frontmatter.load(str(filepath))
         self.current_markdown = post.content
+        self.hidden_markdown = post.metadata.get("hidden")
+        self.unlock_ids = post.metadata.get("unlock_ids")
+        
 
         # 2. Extract IDs from the raw markdown
         discovered_ids = EldenWikiEngine.extract_all_ids(self.current_markdown)
@@ -148,7 +152,7 @@ class WikiDebugViewer(QWidget):
             return
 
         # 1. Run your custom logic parser
-        html = EldenWikiEngine.process(self.current_markdown, self.current_state)
+        html = EldenWikiEngine.process(self.current_markdown, self.current_state, self.hidden_markdown, self.unlock_ids)
 
         # 3. Display
         self.viewer.setHtml(html)

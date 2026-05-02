@@ -1,3 +1,10 @@
+---
+hidden: Walk to the north of Limgrave and venture into the castle, looming above the Stormhill
+unlock_ids:
+  - event:100
+  - item:555
+---
+
 # Stormveil Castle
 
 
@@ -19,10 +26,13 @@ The gates are shut. A foul omen guards the entrance.
 
 {% endif %}
 
+## Conditionals:
+* "Welcome to the castle." {% if event:100 %}
+* "I see you have the key." {% if item:555 %}
+* "Be gone, hollow." {% if event:200 %}
+
 ---
 ### Navigation
-
 * [[Limgrave]]
-
 * [[Roundtable Hold]]
 
