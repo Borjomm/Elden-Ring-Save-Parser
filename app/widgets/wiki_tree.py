@@ -22,6 +22,7 @@ class WikiWindow(BaseObserverTab):
         self.dispatcher = dispatcher
         self.folders: dict[str, ExpandableItem] = {}
         self.items: dict[str, WikiItem] = {}
+        self.current_page = ""
         self.setWindowTitle("Wiki")
 
         # Create the base model
@@ -96,6 +97,8 @@ class WikiWindow(BaseObserverTab):
     def _full_sync(self, data: CharacterData, is_startup: bool):
         for item in self.items.values():
             item.load_flag_state(data, major=True)
+        if self.current_page:
+            self.load_page_content(self.current_page)
 
     def update_search_box(self, text):
         if len(text) > 5:
@@ -107,6 +110,8 @@ class WikiWindow(BaseObserverTab):
         region_proxy_index = self.proxy_model.mapFromSource(item.index())
         if self.isVisible() and region_proxy_index.isValid() and not self.tree.isExpanded(region_proxy_index):
             self.tree.expand(region_proxy_index)
+        if isinstance(item, WikiItem) and self.current_page == item.filepath:
+            self.load_page_content(item.filepath)
 
     def _handle_folders(self, folder_str: str) -> QStandardItem:
         item = self.base_model.invisibleRootItem()
@@ -126,7 +131,6 @@ class WikiWindow(BaseObserverTab):
     
     def load_page_content(self, target: str):
         cursor = self.connection.cursor()
-        print(f"Accessing {target}...")
 
         # 1. Simple search: if it has a slash, check filepath. Else, check name.
         if "/" in target or target.endswith(".md"):
@@ -161,6 +165,7 @@ class WikiWindow(BaseObserverTab):
         # 4. Process and return HTML
         html_output = EldenWikiEngine.process(markdown_text, current_state, hidden_md, unlock_ids)
         self.viewer.load_page(html_output)
+        self.current_page = filepath
             
             
 

@@ -38,5 +38,4 @@ class WikiViewer(QWidget):
             webbrowser.open(href)
 
     def load_page(self, html):
-        print(html)
         self.viewer.setHtml(html)

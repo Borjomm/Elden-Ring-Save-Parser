@@ -138,13 +138,13 @@ class WikiItem(ExpandableItem):
                 self.added = True
             else:
                 self.removed = True
-        self.flag_state["events"][delta.event_id] = delta.val
-        if self.check_unlocked_state():
-            if not self.isEnabled():
-                self.setEnabled(True)
-            parent = self.parent()
-            if isinstance(parent, ExpandableItem):
-                parent.request_expand()
+            self.flag_state["events"][delta.event_id] = delta.val
+            if self.check_unlocked_state():
+                if not self.isEnabled():
+                    self.setEnabled(True)
+                parent = self.parent()
+                if isinstance(parent, ExpandableItem):
+                    parent.request_expand()
 
     def on_item_offset_changed(self, delta: HasItemDelta):
         if self.flag_state["item"][delta.item_id] != delta.val:
@@ -152,13 +152,13 @@ class WikiItem(ExpandableItem):
                 self.added = True
             else:
                 self.removed = True
-        self.flag_state["items"][delta.item_id] = delta.val
-        if self.check_unlocked_state():
-            if not self.isEnabled():
-                self.setEnabled(True)
-            parent = self.parent()
-            if isinstance(parent, ExpandableItem):
-                parent.request_expand()
+            self.flag_state["items"][delta.item_id] = delta.val
+            if self.check_unlocked_state():
+                if not self.isEnabled():
+                    self.setEnabled(True)
+                parent = self.parent()
+                if isinstance(parent, ExpandableItem):
+                    parent.request_expand()
 
 
 
