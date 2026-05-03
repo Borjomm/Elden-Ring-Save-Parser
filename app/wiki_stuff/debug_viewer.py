@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QTextBrowser, QVBoxLayout, QLabel, QGroupBox, QScrollArea, QCheckBox
 from PySide6.QtCore import Qt, QUrl
 from pathlib import Path
+from typing import cast
 import frontmatter
 
 from app.wiki_stuff.wiki_engine import EldenWikiEngine
@@ -87,11 +88,11 @@ class WikiDebugViewer(QWidget):
         post = frontmatter.load(str(filepath))
         self.current_markdown = post.content
         self.hidden_markdown = post.metadata.get("hidden")
-        self.unlock_ids = post.metadata.get("unlock_ids")
+        self.unlock_ids = cast(list[str], post.metadata.get("unlock_ids"))
         
 
         # 2. Extract IDs from the raw markdown
-        discovered_ids = EldenWikiEngine.extract_all_ids(self.current_markdown)
+        discovered_ids = EldenWikiEngine.extract_all_ids(self.current_markdown, self.unlock_ids)
 
         # 3. Initialize the State Dict (Set everything to True)
         self.current_state = {"events": {}, "items": {}}
