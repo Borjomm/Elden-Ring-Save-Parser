@@ -1,10 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QTreeView, QFileSystemModel
-from PySide6.QtCore import Qt
-import frontmatter # using python-frontmatter
 
-from app.wiki_stuff.wiki_engine import EldenWikiEngine
 from app.wiki_stuff.debug_viewer import WikiDebugViewer
 
 class WikiEditor(QWidget):

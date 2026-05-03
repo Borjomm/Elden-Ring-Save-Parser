@@ -11,13 +11,13 @@ class EldenWikiEngine:
     wikilink_pattern = re.compile(r'\[\[([^|\]]+)(?:\|([^\]]+))?\]\]')
 
     @classmethod
-    def extract_all_ids(cls, text):
+    def extract_all_ids(cls, text, unlock_ids: list[str] | None = None):
         """
         Scans text for tags and returns a dict: 
         {'events': {'10000800', ...}, 'items': {'1073749834', ...}}
         """
-        events = set()
-        items = set()
+        events: set[str] = set()
+        items: set[str] = set()
         
         # 1. Find all if/elif tags
         for match in cls.tag_pattern.finditer(text):
@@ -26,6 +26,16 @@ class EldenWikiEngine:
             # 2. Extract type:id pairs from that condition
             for type_name, id_val in cls.condition_pattern.findall(condition_str):
                 # Map 'event' -> 'events' to match your state dict keys
+                if type_name == "event":
+                    events.add(id_val)
+                elif type_name == "item":
+                    items.add(id_val)
+        
+        if unlock_ids is not None:
+            for cond in unlock_ids:
+                type_name, _, id_val = cond.partition(":")
+                if not id_val.isdigit():
+                    continue
                 if type_name == "event":
                     events.add(id_val)
                 elif type_name == "item":
