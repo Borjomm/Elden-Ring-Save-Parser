@@ -82,13 +82,13 @@ class SaveController:
             else:
 
                 event_deltas = self.delta_provider.get_event_deltas()
-                if event_deltas:
-                    self.dispatcher.dispatch_event_deltas(event_deltas)
-                    if self.settings.get_event_logging():
-                        self.event_tracker.display_deltas(event_deltas)
                 item_deltas = self.delta_provider.get_item_deltas()
-                if item_deltas and self.settings.get_item_logging():
-                    self.event_tracker.display_item_changes(item_deltas)
+                if event_deltas or item_deltas:
+                    self.dispatcher.dispatch_event_deltas(event_deltas, item_deltas)
+                    if event_deltas and self.settings.get_event_logging():
+                        self.event_tracker.display_deltas(event_deltas)
+                    if item_deltas and self.settings.get_item_logging():
+                        self.event_tracker.display_item_changes(item_deltas)
                 
                 self.store.update_state(
                     previous_character=self.store.state.current_character,

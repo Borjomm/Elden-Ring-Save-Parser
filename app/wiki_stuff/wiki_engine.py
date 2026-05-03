@@ -3,6 +3,7 @@ import sqlite3
 import json
 import markdown
 import frontmatter
+from urllib.parse import quote
 from pathlib import Path
 
 class EldenWikiEngine:
@@ -16,8 +17,8 @@ class EldenWikiEngine:
         Scans text for tags and returns a dict: 
         {'events': {'10000800', ...}, 'items': {'1073749834', ...}}
         """
-        events: set[str] = set()
-        items: set[str] = set()
+        events: set[int] = set()
+        items: set[int] = set()
         
         # 1. Find all if/elif tags
         for match in cls.tag_pattern.finditer(text):
@@ -27,9 +28,9 @@ class EldenWikiEngine:
             for type_name, id_val in cls.condition_pattern.findall(condition_str):
                 # Map 'event' -> 'events' to match your state dict keys
                 if type_name == "event":
-                    events.add(id_val)
+                    events.add(int(id_val))
                 elif type_name == "item":
-                    items.add(id_val)
+                    items.add(int(id_val))
         
         if unlock_ids is not None:
             for cond in unlock_ids:
@@ -37,9 +38,9 @@ class EldenWikiEngine:
                 if not id_val.isdigit():
                     continue
                 if type_name == "event":
-                    events.add(id_val)
+                    events.add(int(id_val))
                 elif type_name == "item":
-                    items.add(id_val)
+                    items.add(int(id_val))
 
                     
         return {"events": list(events), "items": list(items)}
@@ -52,7 +53,11 @@ class EldenWikiEngine:
         inner = state.get(t + "s")
         if inner is None:
             return False
-        return inner.get(v, False)
+        try:
+            v_int = int(v)
+        except ValueError:
+            return False
+        return inner.get(v_int, False)
     
     @staticmethod
     def evaluate_all(state: dict):
@@ -112,7 +117,7 @@ class EldenWikiEngine:
         return "\n".join(output)
     
     @classmethod
-    def process(cls, text, state, hidden_md, unlock_ids = None):
+    def process(cls, text, state, hidden_md, unlock_ids: list[str] | None = None):
         def link_replacer(match):
             raw_target = match.group(1).strip()
             alias = match.group(2).strip() if match.group(2) else None
@@ -127,10 +132,12 @@ class EldenWikiEngine:
             # So [[public/Radahn]] becomes "Radahn" instead of "public/Radahn"
             if not alias:
                 alias = target
+
+            safe_target = quote(target)
                 
             # We use a custom 'wiki://' protocol so PySide knows it's an internal link
-            return f"[{alias}](wiki://{target})"
-        if unlock_ids is not None and not any(cls.evaluate(cond, state) for cond in unlock_ids) or not cls.evaluate_all(state):
+            return f"[{alias}](wiki:{safe_target})"
+        if unlock_ids and not any(cls.evaluate(cond, state) for cond in unlock_ids): # or not cls.evaluate_all(state):
             text = f"# This page is locked!\n{hidden_md}"
         else:
             text = cls._process_logic(text, state)

@@ -50,3 +50,4 @@ class LiveWatcherService(QObject):
 
     def stop(self):
         self.timer.stop()
+        self.lib.close()

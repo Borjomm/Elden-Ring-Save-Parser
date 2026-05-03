@@ -1,12 +1,12 @@
 
 from PySide6.QtWidgets import QTreeView, QVBoxLayout, QWidget, QLineEdit, QHBoxLayout, QPushButton, QLabel, QMenu, QApplication
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QDesktopServices
-from PySide6.QtCore import Qt, QSortFilterProxyModel, QUrl
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction
+from PySide6.QtCore import Qt, QSortFilterProxyModel
 from typing import cast
 from sqlite3 import Connection
 
 from app.parser.wrapper import CharacterData
-from app.data.consts import LINK, QT_GREEN, QT_RED, QT_YELLOW, REGION_NAME
+from app.data.consts import QT_GREEN, QT_RED, QT_YELLOW
 from app.core.app_state import AppStore, AppState, UpdateType, EventBus
 from app.util.utils import make_combo_widget
 from app.util.animation import flash_item
@@ -201,16 +201,14 @@ class GraceWindow(BaseObserverTab):
         item = self.base_model.itemFromIndex(source_index)
 
         menu = QMenu(self)
-        if not item.hasChildren(): # Boss Item
-            link = item.data(LINK)
-            if link:
-                action_wiki = QAction(f"Open Wiki: {item.text()}", self)
-                action_wiki.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(link)))
-                menu.addAction(action_wiki)
-
+        if isinstance(item, GraceItem): # Boss Item
             action_copy = QAction("Copy Name", self)
             action_copy.triggered.connect(lambda: QApplication.clipboard().setText(item.text()))
             menu.addAction(action_copy)
+
+            action_copy_id = QAction("Copy Event ID", self)
+            action_copy_id.triggered.connect(lambda: QApplication.clipboard().setText(str(item.event_id)))
+            menu.addAction(action_copy_id)
 
         elif isinstance(item, RegionItem):
             region_name = item.region_name

@@ -5,6 +5,7 @@ from functools import partial
 from app.widgets.file_io_widget import FileIOWidget
 from app.widgets.boss_tree import BossWindow
 from app.widgets.graces_tree import GraceWindow
+from app.widgets.wiki_tree import WikiWindow
 from app.widgets.event_editor import EventEditor
 from app.util import utils
 from app.core.app_state import AppStore, AppState, EventBus, DataSource
@@ -41,6 +42,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.boss_tab, "Bosses")
         self.grace_tab = GraceWindow(self.db_conn, self.store, self.dispatcher)
         self.tabs.addTab(self.grace_tab, "Graces")
+        self.wiki_tab = WikiWindow(self.db_conn, self.store, self.dispatcher)
+        self.tabs.addTab(self.wiki_tab, "Wiki")
         self.event_editor_tab = EventEditor(self.db_conn, self.controller)
         self.tabs.addTab(self.event_editor_tab, "Events")
 

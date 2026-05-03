@@ -57,9 +57,9 @@ class WikiDebugViewer(QWidget):
         """Intercepts wiki:// links and searches the hard drive."""
         href = url.toString()
         
-        if href.startswith("wiki://"):
+        if href.startswith("wiki:"):
             # Extract the filename (e.g., "Radahn" from "wiki://Radahn")
-            target_name = href.replace("wiki://", "")
+            target_name = href.replace("wiki:", "")
             
             # Since this is Debug Mode: Search the OS for the file
             # Obsidian files are named target_name.md

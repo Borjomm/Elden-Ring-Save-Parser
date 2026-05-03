@@ -4,7 +4,7 @@ from enum import Enum, auto
 from PySide6.QtCore import QObject, Signal
 
 from app.parser.wrapper import CharacterData, CharacterSelection
-from app.data.containers import EventDelta
+from app.data.containers import EventDelta, HasItemDelta
 
 class DataSource(Enum):
     NONE = auto()
@@ -74,6 +74,8 @@ class EventBus(QObject):
     def __init__(self):
         super().__init__()
         self._subscribers: dict[int, list[Callable]] = {}
+        self._wiki_event_subs: dict[int, list[Callable]] = {}
+        self._wiki_item_subs: dict[int, list[Callable]] = {}
     
     def subscribe(self, event_id: int, callback: Callable):
         """Register a callback for a specific ID."""
@@ -81,10 +83,29 @@ class EventBus(QObject):
             self._subscribers[event_id] = []
         self._subscribers[event_id].append(callback)
 
-    def dispatch_event_deltas(self, deltas: list[EventDelta]):
-        for delta in deltas:
+    def subscribe_wiki(self, flag_dict: dict[str, list[int]], callback_event: Callable, callback_item: Callable):
+        for val in flag_dict["events"]:
+            if val not in self._wiki_event_subs:
+                self._wiki_event_subs[val] = []
+            self._wiki_event_subs[val].append(callback_event)
+        for val in flag_dict["items"]:
+            if val not in self._wiki_item_subs:
+                self._wiki_item_subs[val] = []
+            self._wiki_item_subs[val].append(callback_item)
+
+
+    def dispatch_event_deltas(self, event_deltas: list[EventDelta], item_deltas: list[HasItemDelta]):
+        for delta in event_deltas:
             # ONLY call the subscribers who care about this specific ID
             if delta.event_id in self._subscribers:
                 for callback in self._subscribers[delta.event_id]:
                     callback(delta.val)
+            if delta.event_id in self._wiki_event_subs:
+                for callback in self._wiki_event_subs[delta.event_id]:
+                    callback(delta)
+        for delta in item_deltas:
+            if delta.item_id in self._wiki_item_subs:
+                for callback in self._wiki_item_subs[delta.item_id]:
+                    callback(delta)
+
         self.cycle_finished.emit()

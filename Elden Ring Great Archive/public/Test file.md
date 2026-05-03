@@ -1,7 +1,6 @@
 ---
 hidden: Walk to the north of Limgrave and venture into the castle, looming above the Stormhill
 unlock_ids:
-  - event:100
   - item:555
 ---
 

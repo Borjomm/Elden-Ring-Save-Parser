@@ -3,6 +3,7 @@ import sqlite3
 import frontmatter
 import re
 import json
+from urllib.parse import quote
 from pathlib import Path
 
 from app.wiki_stuff.wiki_engine import EldenWikiEngine
@@ -30,9 +31,9 @@ class WikiParser:
         # So [[public/Radahn]] becomes "Radahn" instead of "public/Radahn"
         if not alias:
             alias = target
-                
+        safe_target = quote(target)
         # We use a custom 'wiki://' protocol so PySide knows it's an internal link
-        return f"[{alias}](wiki://{target})"
+        return f"[{alias}](wiki:{safe_target})"
 
     def make_table(self):
         if self.drop_table:
