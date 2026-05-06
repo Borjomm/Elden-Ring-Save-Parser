@@ -195,18 +195,24 @@ class BossWindow(BaseObserverTab):
         item = self.base_model.itemFromIndex(source_index)
 
         menu = QMenu(self)
-        if not item.hasChildren(): # Boss Item
+        if isinstance(item, BossItem): # Boss Item
+            action_copy = QAction("Copy Name", self)
+            action_copy.triggered.connect(lambda: QApplication.clipboard().setText(item.text()))
+            menu.addAction(action_copy)
+
+            action_copy_id = QAction("Copy Event ID", self)
+            action_copy_id.triggered.connect(lambda: QApplication.clipboard().setText(str(item.event_id)))
+            menu.addAction(action_copy_id)
+            
             link = item.data(LINK)
             if link:
                 action_wiki = QAction(f"Open Wiki: {item.text()}", self)
                 action_wiki.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(link)))
                 menu.addAction(action_wiki)
 
-            action_copy = QAction("Copy Name", self)
-            action_copy.triggered.connect(lambda: QApplication.clipboard().setText(item.text()))
-            menu.addAction(action_copy)
 
-        else: # Region Item
+
+        elif isinstance(item, RegionItem): # Region Item
             region_name = item.data(REGION_NAME)
             is_expanded = self.tree.isExpanded(proxy_index)
             if is_expanded:

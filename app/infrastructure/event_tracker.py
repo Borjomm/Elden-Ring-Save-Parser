@@ -62,7 +62,7 @@ class EventTracker(QObject):
         flag_purpose = self._region_flag_helper(flag_id)
         return f"{region_str} | {flag_purpose}"
     
-    def get_event_representation(self, flag: int, created_at: int = -1, val: bool = False):
+    def get_event_representation(self, flag: int, created_at: int = -1, val: bool | int = False):
         event_flag = self.flags.get(flag)
         if event_flag is not None:
             return event_flag.add_temp_info(created_at, val)
