@@ -6,6 +6,7 @@ import traceback
 from PySide6.QtWidgets import QApplication
 
 # Import our new architectural layers
+from app.data.consts import CREATOR, APP
 from app.parser.adapter import ParserAdapter
 from app.infrastructure.settings_repository import SettingsRepository
 from app.infrastructure.watcher_service import FileWatcherService
@@ -36,7 +37,7 @@ class EldenApp(QApplication):
         )
         self.dispatcher = EventBus()
         self.parser = ParserAdapter()
-        self.settings = SettingsRepository("YourName", "EldenChecklist")
+        self.settings = SettingsRepository(CREATOR, APP)
         self.watcher = FileWatcherService()
         self.live_watcher = LiveWatcherService()
         self.event_tracker = EventTracker(self.db_connection)

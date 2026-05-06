@@ -3,6 +3,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QTreeView, QFileSystemModel
 
 from app.wiki_stuff.debug_viewer import WikiDebugViewer
+from app.infrastructure.settings_dialog import WikiSettingsContainer
 
 class WikiEditor(QWidget):
     def __init__(self):
@@ -11,23 +12,24 @@ class WikiEditor(QWidget):
         layout.addWidget
 
 class DebugView(QWidget):
-    def __init__(self, workspace_path: Path):
+    def __init__(self, settings: WikiSettingsContainer):
         super().__init__()
-        self.workspace = workspace_path
+        self.settings = settings
+        self.workspace = Path(settings.root_path, settings.parse_path)
         
         # Left Side: File Explorer
         self.tree = QTreeView()
         self.model = QFileSystemModel()
-        self.model.setRootPath(str(workspace_path))
+        self.model.setRootPath(self.workspace.as_posix())
         self.model.setNameFilters(["*.md"])
         self.tree.setModel(self.model)
-        self.tree.setRootIndex(self.model.index(str(workspace_path)))
+        self.tree.setRootIndex(self.model.index(self.workspace.as_posix()))
         
         # Open file on double click
         self.tree.doubleClicked.connect(self.on_file_double_clicked)
         
         # Right Side: Your Flag Menu + HTML Viewer (from earlier)
-        self.viewer = WikiDebugViewer(workspace_path)
+        self.viewer = WikiDebugViewer(self.workspace)
         
         layout = QHBoxLayout(self)
         layout.addWidget(self.tree, 1)
@@ -45,10 +47,11 @@ class DebugView(QWidget):
     def handle_internal_link(self, target_name):
         """The callback for [[Wikilinks]] - searches the disk."""
         # 1. Strip 'public/' if it's there (as we discussed)
-        clean_target = target_name.replace("public/", "")
+        if self.settings.parse_path:
+            target_name = target_name.replace(self.settings.parse_path, "")
         
         # 2. Look for the file on the hard drive
-        matches = list(self.workspace.rglob(f"{clean_target}.md"))
+        matches = list(self.workspace.rglob(f"{target_name}.md"))
         
         if matches:
             # 3. Get the OS path of the first match
@@ -61,6 +64,6 @@ class DebugView(QWidget):
             # 5. Load it into the viewer
             self.viewer.load_page(target_path)
         else:
-            print(f"Debug: File {clean_target}.md not found in {self.workspace}")
+            print(f"Debug: File {target_name}.md not found in {self.workspace}")
 
 

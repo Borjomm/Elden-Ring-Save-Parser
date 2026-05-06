@@ -1,20 +1,26 @@
-import argparse
+
 import sqlite3
 import frontmatter
 import re
 import json
+import sys
 from urllib.parse import quote
 from pathlib import Path
 
 from app.wiki_stuff.wiki_engine import EldenWikiEngine
+from app.infrastructure.settings_repository import SettingsRepository
+from app.data.containers import WikiSettingsContainer
+from app.data.consts import MAIN_DB_PATH
+
+from PySide6.QtWidgets import QDialog, QFormLayout, QVBoxLayout, QDialogButtonBox, QLineEdit, QPushButton, QMessageBox, QApplication, QCheckBox
 
 class WikiParser:
     wikilink_pattern = re.compile(r'\[\[([^|\]]+)(?:\|([^\]]+))?\]\]')
-    def __init__(self, db_path: Path, f_path: Path, strip_str: str, drop_table: bool = False):
-        self.conn = sqlite3.connect(db_path)
-        self.folder_path = f_path
-        self.files = f_path.rglob("*.md")
-        self.strip_str = strip_str
+    def __init__(self, settings: WikiSettingsContainer, drop_table: bool = False):
+        self.conn = sqlite3.connect(settings.db_path)
+        self.folder_path = Path(settings.root_path, settings.parse_path)
+        self.files = self.folder_path.rglob("*.md")
+        self.strip_str = settings.parse_path
         self.drop_table = drop_table
 
     def _link_replacer(self, match):
@@ -56,6 +62,7 @@ unlock_ids TEXT)
 INSERT INTO wiki_entries (filepath, name, markdown, hidden_markdown, conditions, unlock_ids) VALUES (?, ?, ?, ?, ?, ?)
 """, query)
         self.conn.commit()
+        return len(query)
 
     def _parse_file(self, path: Path):
         print(f"Parsing {path}")
@@ -69,47 +76,81 @@ INSERT INTO wiki_entries (filepath, name, markdown, hidden_markdown, conditions,
 
         event_dict = EldenWikiEngine.extract_all_ids(current_markdown, unlock_ids)
         return (save_path.as_posix(), path.stem, current_markdown, hidden_markdown, json.dumps(event_dict), ",".join(unlock_ids))
+    
+class UpdateUI(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Database Compiler")
+        self.resize(600, 150)
+        self.settings = SettingsRepository()
+        container = self.settings.get_or_prompt_wiki_settings()
+        if not container:
+            sys.exit(1)
+        self.container = container
+        change_settings_button = QPushButton("Change settings...")
+        change_settings_button.clicked.connect(self.change_container)
+        self.root_line = QLineEdit(container.root_path, readOnly=True)
+        self.parse_line = QLineEdit(container.parse_path, readOnly=True)
+        self.db_line = QLineEdit(container.db_path, readOnly=True)
+        self.drop_table_checkbox = QCheckBox()
+        self.drop_table_checkbox.setChecked(True)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.parse_into_db)
+        buttons.rejected.connect(self.reject)
+
+        main_layout = QVBoxLayout(self)
+        form_layout = QFormLayout()
+        form_layout.addRow("Obsidian vault folder", self.root_line)
+        form_layout.addRow("Parsing folder", self.parse_line)
+        form_layout.addRow("Output path", self.db_line)
+        form_layout.addRow("Replace old data", self.drop_table_checkbox)
+
+        main_layout.addWidget(change_settings_button)
+        main_layout.addLayout(form_layout)
+        main_layout.addWidget(buttons)
+
+    def parse_into_db(self):
+        drop_table = self.drop_table_checkbox.isChecked()
+        result = QMessageBox.StandardButton.Ok
+        if self.container.db_path == MAIN_DB_PATH:
+            msg = "You are about to overwrite the main database table!" if drop_table else "You are about to commit to the main database table!"
+            result = QMessageBox.question(
+                self,
+                "Confirm Action",
+                msg + " Make sure to backup your database before clicking 'Ok'.",
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+            )
+        if result == QMessageBox.StandardButton.Ok:
+            try:
+                parser = WikiParser(self.container, drop_table)
+                num_files = parser.parse_md()
+                QMessageBox.information(self, "Success", f"The database has been updated successfully, {num_files} {'written' if drop_table else 'added'}.")
+                self.accept()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Error while parsing the database:\n{e}")
+                self.reject()
+
+
+    def change_container(self):
+        container = self.settings.prompt_wiki_settings()
+        if not container:
+            return
+        self.container = container
+        self.root_line.setText(container.root_path)
+        self.parse_line.setText(container.parse_path)
+        self.db_line.setText(container.db_path)
+
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('db_path')
-    parser.add_argument('root_path')
-    parser.add_argument('folder_path')
-    parser.add_argument('-f', "--force_drop_table", action="store_true")
-    parser.add_argument('-v', "--verbose", action="store_true")
-    args = parser.parse_args()
-    db_path = Path(args.db_path)
-    root_path = Path(args.root_path)
-    folder_path = Path(args.folder_path)
-
-    if not db_path.suffix == ".db":
-        print("Error: Database path is not a database file.")
+    app = QApplication()
+    app.setStyle("Fusion")
+    settings = SettingsRepository()
+    container = settings.get_or_prompt_wiki_settings()
+    if not container:
         return
-    if not root_path.is_dir():
-        print(f"Error: Root path '{root_path}' does not exist or is not a directory.")
-        return
-    elif not folder_path.is_dir():
-        print(f"Error: Folder path '{folder_path}' does not exist or is not a directory.")
-        return
-    if db_path.stem == "gamedata":
-        prompt = "You are about to permanently replace the main wiki_entries table!" if args.force_drop_table else "You are about to add entries to the main wiki_entries table!"
-        response = input(prompt + " Make a backup of gamedata.db and type 'YES' afterwards: ")
-        if response != "YES":
-            print("Exiting...")
-            return
-    # Resolve paths to absolute paths to prevent comparison errors
-    res_root = root_path.resolve()
-    res_folder = folder_path.resolve()
-
-        # 2. Check if folder_path is within root_path (Requires Python 3.9+)
-    if not res_folder.is_relative_to(res_root):
-        print(f"Error: '{res_folder}' is completely outside of '{res_root}'.")
-        return
-            
-            # 3. Output the difference
-    wikilink_strip_str = res_folder.relative_to(res_root).as_posix() + "/"
-    parser = WikiParser(db_path, folder_path, wikilink_strip_str, args.force_drop_table)
-    parser.parse_md()
+    parser = UpdateUI()
+    parser.exec()
             
 
 if __name__ == "__main__":

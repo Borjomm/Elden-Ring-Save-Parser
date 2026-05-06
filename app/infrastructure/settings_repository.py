@@ -2,8 +2,12 @@ from pathlib import Path
 from typing import List, Tuple, Optional, cast
 from PySide6.QtCore import QSettings, QStandardPaths
 
+from app.infrastructure.settings_dialog import WikiSettingsDialog
+from app.data.consts import APP, CREATOR
+from app.data.containers import WikiSettingsContainer
+
 class SettingsRepository:
-    def __init__(self, org_name: str, app_name: str):
+    def __init__(self, org_name: str = CREATOR, app_name: str = APP):
         self.settings = QSettings(org_name, app_name)
 
     def get_default_save_path(self) -> Optional[str]:
@@ -67,3 +71,28 @@ class SettingsRepository:
         recent.insert(0, (path, slot))
         # Keep top 5
         self.settings.setValue("recent_list", recent[:5])
+
+    def get_or_prompt_wiki_settings(self):
+        r_path = cast(str, self.settings.value("root_path", ""))
+        p_path = cast(str, self.settings.value("parse_path", ""))
+        d_path = cast(str, self.settings.value("db_path", ""))
+        if r_path and p_path and d_path:
+            return WikiSettingsContainer(r_path, p_path, d_path)
+        return self.prompt_wiki_settings()
+
+    def prompt_wiki_settings(self):
+        r_path = cast(str, self.settings.value("root_path", ""))
+        p_path = cast(str, self.settings.value("parse_path", ""))
+        d_path = cast(str, self.settings.value("db_path", ""))
+        root_path = Path(r_path) if r_path else None
+        parse_path = Path(root_path if root_path else "", p_path) if p_path else None
+        db_path = Path(d_path) if d_path else None
+        dialog = WikiSettingsDialog(None, root_path, parse_path, db_path)
+        if dialog.exec():
+            container = dialog.get_settings()
+            self.settings.setValue("root_path", container.root_path)
+            self.settings.setValue("parse_path", container.parse_path)
+            self.settings.setValue("db_path", container.db_path)
+            return container
+        return None
+

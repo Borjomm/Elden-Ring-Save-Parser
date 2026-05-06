@@ -2,6 +2,12 @@ from dataclasses import dataclass, replace
 import os
 
 @dataclass(frozen=True)
+class WikiSettingsContainer:
+    root_path: str
+    parse_path: str
+    db_path: str
+
+@dataclass(frozen=True)
 class EventFlag:
     event_id: int
     description: str

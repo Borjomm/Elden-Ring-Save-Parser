@@ -6,4 +6,4 @@ if not exist ".venv" (
 )
 echo Starting Compilation...
 :: Replace database argument with "app/gamedata.db" to update the main app
-".venv\Scripts\python.exe" -m app.wiki_stuff.update_wiki_db "app/gamedata.db" "Elden Ring Great Archive" "Elden Ring Great Archive\public" --force_drop_table
+".venv\Scripts\python.exe" -m app.wiki_stuff.update_wiki_db
