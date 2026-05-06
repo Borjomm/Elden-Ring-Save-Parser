@@ -17,7 +17,7 @@ if __name__ == "__main__":
     settings = SettingsRepository()
     wiki_settings = settings.get_or_prompt_wiki_settings()
     if wiki_settings:
-        window.setCentralWidget(DebugView(wiki_settings))
+        window.setCentralWidget(DebugView(settings, wiki_settings))
         window.show()
         app.exec()
 

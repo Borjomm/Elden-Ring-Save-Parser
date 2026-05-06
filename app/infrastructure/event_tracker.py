@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from app.parser.wrapper import CharacterData
 from app.data.containers import EventDelta, EventFlag, DisplayedDeltaChange, HasItemDelta
-from app.data.consts import REGION_FLAGS, REGION_MAP
+from app.data.consts import REGION_FLAGS, REGION_MAP, ITEM_JSON_PATH
 from app.data.inventory_state import extract_item_id_set, get_item_name
 from app.util.utils import make_small_screenshot_and_save
 from PySide6.QtCore import QObject, Signal
@@ -29,7 +29,7 @@ class EventTracker(QObject):
     new_change_recorded = Signal(object)
     def __init__(self, db_connection: Connection):
         super().__init__()
-        with open("app\\item_dict.json", "r", encoding="utf-8") as f:
+        with open(ITEM_JSON_PATH, "r", encoding="utf-8") as f:
             self.item_dict = {int(k): v for k, v in json.load(f).items()}
 
         self.db_connection = db_connection
@@ -62,7 +62,7 @@ class EventTracker(QObject):
         flag_purpose = self._region_flag_helper(flag_id)
         return f"{region_str} | {flag_purpose}"
     
-    def _get_representation(self, flag: int, created_at: int, val: bool = False):
+    def get_event_representation(self, flag: int, created_at: int = -1, val: bool = False):
         event_flag = self.flags.get(flag)
         if event_flag is not None:
             return event_flag.add_temp_info(created_at, val)
@@ -83,7 +83,7 @@ class EventTracker(QObject):
         make_small_screenshot_and_save(path)
         flags = []
         for delta in deltas:
-            flag = self._get_representation(delta.event_id, created_at, delta.val)
+            flag = self.get_event_representation(delta.event_id, created_at, delta.val)
             if flag is not None:
                 flags.append(flag)
         change = DisplayedDeltaChange(created_at, path, flags)
@@ -100,16 +100,19 @@ class EventTracker(QObject):
         if category_mask == 0x80000000: return "Ash of War"
         
         return "Unknown"
+    
+    def get_item_name(self, item_id):
+        return get_item_name(item_id, self.item_dict)
 
     def display_item_changes(self, deltas: list[HasItemDelta]):
         print(f"Item deltas changed: {len(deltas)}")
-        print("\n".join(("Got: " if delta.val else "Lost: ") + get_item_name(delta.item_id, self.item_dict) for delta in deltas))
+        print("\n".join(("Got: " if delta.val else "Lost: ") + self.get_item_name(delta.item_id) for delta in deltas))
 
     def print_all_items(self, character: CharacterData, from_save: bool):
         ids = extract_item_id_set(character._struct)
         print(f"Printing from {'save' if from_save else 'memory'}:")
         for i, item in enumerate(ids):
-            print(f"{i+1}. {get_item_name(item, self.item_dict)}")
+            print(f"{i+1}. {self.get_item_name(item)}")
 
 
 

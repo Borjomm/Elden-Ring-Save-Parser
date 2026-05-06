@@ -7,6 +7,7 @@ APP = "EldenRingChecklist"
 DEFAULT_PATH = "AppData/Roaming/EldenRing/76561198231946968"
 MAIN_DB_PATH = "app/gamedata.db"
 TEMP_DB_PATH = "tmp/event_processing.db"
+ITEM_JSON_PATH = "app/item_dict.json"
 
 # Region items
 REGION_NAME = Qt.ItemDataRole.UserRole + 1

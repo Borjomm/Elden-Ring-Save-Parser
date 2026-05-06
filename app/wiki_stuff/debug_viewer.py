@@ -1,15 +1,17 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QTextBrowser, QVBoxLayout, QLabel, QGroupBox, QScrollArea, QCheckBox
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QTextBrowser, QVBoxLayout, QLabel, QGroupBox, QScrollArea, QCheckBox, QSplitter
 from PySide6.QtCore import Qt, QUrl
 from pathlib import Path
 from typing import cast
 import frontmatter
 
 from app.wiki_stuff.wiki_engine import EldenWikiEngine
+from app.infrastructure.event_tracker import EventTracker
 
 class WikiDebugViewer(QWidget):
-    def __init__(self, workspace_path):
+    def __init__(self, workspace_path, tracker: EventTracker):
         super().__init__()
         self.workspace_path = workspace_path
+        self.tracker = tracker
         self.setWindowTitle("Elden Wiki - Debug Viewer")
         self.resize(1000, 600)
 
@@ -24,13 +26,17 @@ class WikiDebugViewer(QWidget):
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(self.splitter)
 
         # ================= LEFT: HTML VIEWER =================
         self.viewer = QTextBrowser()
         self.viewer.setOpenLinks(False) # We will intercept link clicks later
         self.viewer.setStyleSheet("background-color: #000000; font-size: 14px; padding: 10px;")
         
-        main_layout.addWidget(self.viewer, stretch=3) # Takes up 75% of screen
+        self.splitter.addWidget(self.viewer)
 
         # ================= RIGHT: FLAG CONTROLS =================
         right_panel = QWidget()
@@ -52,7 +58,12 @@ class WikiDebugViewer(QWidget):
         scroll_area.setWidget(right_panel)
         scroll_area.setMinimumWidth(250)
 
-        main_layout.addWidget(scroll_area, stretch=1) # Takes up 25% of screen
+        self.splitter.addWidget(scroll_area)
+
+        # ================= SPLITTER SETTINGS =================
+        # Apply the 3:1 (75% / 25%) stretch ratio to the splitter
+        self.splitter.setStretchFactor(0, 3) # Index 0 is the Viewer
+        self.splitter.setStretchFactor(1, 1) # Index 1 is the Scroll Area
 
     def on_link_clicked(self, url: QUrl):
         """Intercepts wiki:// links and searches the hard drive."""
@@ -132,7 +143,11 @@ class WikiDebugViewer(QWidget):
             # Create the checkboxes
             # Sort them so they always appear in the same order
             for obj_id in sorted(self.current_state[category].keys()):
-                cb = QCheckBox(f"{category[:-1].capitalize()} {obj_id}")
+                if category == "events":
+                    obj_name = self.tracker.get_event_representation(obj_id).description
+                else:
+                    obj_name = self.tracker.get_item_name(obj_id)
+                cb = QCheckBox(f"{category[:-1].capitalize()} {obj_id}\n{obj_name}")
                 cb.setChecked(True) # We initialized state to True
 
                 # IMPORTANT: We use default arguments in the lambda (c=category, i=obj_id)

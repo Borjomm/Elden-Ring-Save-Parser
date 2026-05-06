@@ -215,6 +215,15 @@ class EventEditor(QWidget):
         elif isinstance(data, DisplayedDeltaChange):
             self.detail_view.unload()
 
+    def on_context_menu(self, point):
+        index = self.tree_view.indexAt(point)
+        if not index.isValid():
+            return
+        item = self.model.itemFromIndex(index)
+        data = item.data(Qt.ItemDataRole.UserRole)
+        
+
+
     def gather_session_data(self):
         """Iterates through the UI model to prepare data for the database."""
         rows_screenshots = []

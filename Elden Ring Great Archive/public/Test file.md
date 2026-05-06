@@ -34,4 +34,5 @@ The gates are shut. A foul omen guards the entrance.
 ### Navigation
 * [[Limgrave]]
 * [[Roundtable Hold]]
+* [[White Mask Varré]]
 
