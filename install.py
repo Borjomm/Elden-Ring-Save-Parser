@@ -19,14 +19,8 @@ def setup():
     else:
         print("Virtual environment already exists.")
 
-    # 3. Determine the pip executable path
-    # Windows uses Scripts\, Linux/Mac uses bin/
-    if sys.platform == "win32":
-        pip_exe = venv_dir / "Scripts" / "pip.exe"
-        python_exe = venv_dir / "Scripts" / "python.exe"
-    else:
-        pip_exe = venv_dir / "bin" / "pip"
-        python_exe = venv_dir / "bin" / "python"
+    pip_exe = venv_dir / "Scripts" / "pip.exe"
+    python_exe = venv_dir / "Scripts" / "python.exe"
 
     # 4. Upgrade Pip
     print("Upgrading pip...")
