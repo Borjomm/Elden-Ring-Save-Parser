@@ -39,7 +39,7 @@ class EldenApp(QApplication):
         self.parser = ParserAdapter()
         self.settings = SettingsRepository(CREATOR, APP)
         self.watcher = FileWatcherService()
-        self.live_watcher = LiveWatcherService()
+        self.live_watcher = LiveWatcherService(self.parser)
         self.event_tracker = EventTracker(self.db_connection)
 
         # 3. Initialize Application Layer (The "Brain")
@@ -51,7 +51,7 @@ class EldenApp(QApplication):
             live_watcher=self.live_watcher,
             settings=self.settings,
             event_tracker=self.event_tracker,
-            dispatcher=self.dispatcher
+            dispatcher=self.dispatcher,
         )
 
         # 4. Initialize Presentation Layer (The "Face")
@@ -84,6 +84,9 @@ class EldenApp(QApplication):
 
         if hasattr(self, "live_watcher"):
             self.live_watcher.stop()
+
+        if hasattr(self, "parser"):
+            self.parser.close_live()
 
         if hasattr(self, "window"):
             self.window.event_editor_tab.save_session_to_temp_db()

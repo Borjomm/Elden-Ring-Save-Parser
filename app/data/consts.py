@@ -8,6 +8,8 @@ DEFAULT_PATH = "AppData/Roaming/EldenRing/76561198231946968"
 MAIN_DB_PATH = "app/gamedata.db"
 TEMP_DB_PATH = "tmp/event_processing.db"
 ITEM_JSON_PATH = "app/item_dict.json"
+LIVE_MEMORY_DLL_PATH = "app/parser/compare_avx.dll"
+SAVEFILE_DLL_PATH = "app/parser/parser_new.dll"
 
 # Region items
 REGION_NAME = Qt.ItemDataRole.UserRole + 1
@@ -32,6 +34,7 @@ MAX_KEY_ITEMS_STORAGE = 128
 # Flags
 EVENT_POOL_SIZE = 1833375
 GAME_LOADED_FLAG = 50
+MAX_DELTAS = 10000
 
 REGION_FLAGS = [
 (0, 10, "Bonfire Flag"),

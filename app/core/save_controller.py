@@ -6,7 +6,6 @@ from app.infrastructure.watcher_service import FileWatcherService
 from app.infrastructure.event_tracker import EventTracker
 from app.parser.live_watcher import LiveWatcherService
 from app.parser.state_buffer import DeltaProvider
-from app.parser.models import CCharacterData
 from app.parser.wrapper import CharacterData
 from app.data.consts import GAME_LOADED_FLAG
 
@@ -19,7 +18,7 @@ class SaveController:
         self.settings = settings
         self.event_tracker = event_tracker
         self.dispatcher = dispatcher
-        self.delta_provider = DeltaProvider()
+        self.delta_provider = DeltaProvider(self.adapter)
 
         
         # Connect the watcher to our internal handler
@@ -48,6 +47,7 @@ class SaveController:
             return True
 
 
+
     def automatic_parse(self, force_major: bool = False):
         state = self.store.state
 
@@ -57,25 +57,22 @@ class SaveController:
         try:
             if state.data_source == DataSource.LIVE_MEMORY:
                 updated_data = self.live_watcher.check_for_changes()
-                wrapped_data = CharacterData(updated_data)
-                memory_status = wrapped_data.get_event_state(GAME_LOADED_FLAG)
+                memory_status = updated_data.get_event_state(GAME_LOADED_FLAG)
                 new_status = MemoryViewStatus.IN_GAME if memory_status else MemoryViewStatus.MENU
                 major = force_major or new_status != state.memory_view_status
                 if major:
                     print("[MEMORY VIEWER]", "LOADED IN GAME" if memory_status else "LOADED IN MENU")
             elif state.data_source == DataSource.SAVE_FILE and state.current_path and state.current_slot:
                 updated_data = self._reload_with_retry(state.current_path, state.current_slot)
-                wrapped_data = CharacterData(updated_data)
                 major = force_major
                 new_status = MemoryViewStatus.MENU
             else:
                 raise RuntimeError("Tried parsing without a data source!")
-            self.delta_provider.update(updated_data)
             if major:
 
                 self.store.update_state(
                     previous_character=None,
-                    current_character=wrapped_data,
+                    current_character=updated_data,
                     memory_view_status = new_status,
                     update_type=UpdateType.MAJOR
                 )
@@ -92,7 +89,7 @@ class SaveController:
                 
                 self.store.update_state(
                     previous_character=self.store.state.current_character,
-                    current_character=wrapped_data,
+                    current_character=updated_data,
                     update_type=UpdateType.MINOR
                 )
                 
@@ -109,7 +106,7 @@ class SaveController:
         
         try:
             # 1. Load the headers (Character slots)
-            headers = self.adapter.load_headers(filepath)
+            headers = self.adapter.load_headers_save(filepath)
             
             # 2. Filter out empty slots (optional, or keep all 10)
             # available = [h for h in headers if h.name]
@@ -144,13 +141,12 @@ class SaveController:
             return
         
         try:
-            data = self.adapter.load_character(path, index)
-            self.delta_provider.update(data)
+            data = self.adapter.load_character_save(path, index)
             
             self.store.update_state(
                 current_slot=index,
                 previous_character=None,
-                current_character=CharacterData(data),
+                current_character=data,
                 update_type = UpdateType.STARTUP if startup else UpdateType.MAJOR
             )
             
@@ -174,12 +170,12 @@ class SaveController:
         QTimer.singleShot(0, lambda: self._reload_with_retry(state.current_path, state.current_slot)) # type: ignore
         
 
-    def _reload_with_retry(self, path: str, slot: int, retries=5) -> CCharacterData:
+    def _reload_with_retry(self, path: str, slot: int, retries=5) -> CharacterData:
         """Internal: Elden Ring often locks the file while writing."""
         for _ in range(retries):
             try:
                 # Use the adapter to get fresh data
-                return self.adapter.load_character(path, slot)
+                return self.adapter.load_character_save(path, slot)
                 
             except FileLockedError:
                 # Wait 200ms and try again
