@@ -133,7 +133,8 @@ class WikiItem(ExpandableItem):
 
 
     def on_event_offset_changed(self, delta: EventDelta):
-        if self.flag_state["events"][delta.event_id] != delta.val:
+        
+        if self.flag_state["events"].get(delta.event_id) != delta.val:
             if delta.val:
                 self.added = True
             else:
@@ -147,7 +148,7 @@ class WikiItem(ExpandableItem):
                     parent.request_expand()
 
     def on_item_offset_changed(self, delta: HasItemDelta):
-        if self.flag_state["item"][delta.item_id] != delta.val:
+        if self.flag_state["items"].get(delta.item_id) != delta.val:
             if delta.val:
                 self.added = True
             else:

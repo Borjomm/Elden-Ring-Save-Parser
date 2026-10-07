@@ -47,9 +47,18 @@ class EventTracker(QObject):
         return "Unknown Flag"
     
     def _map_region_flag(self, flag: int, flag_len: int):
+        def remap_flag(flag: int) -> int:
+            leading_map = {10: 60, 20: 61}
+
+            leading = flag // 100_000_000          # e.g. 20 for 2053460000
+            rest    = flag %  100_000_000
+            
+            
+            return leading_map.get(leading, leading) * 100_000_000 + rest
         match flag_len:
             case 10:
-                region = (600000 + (((flag // 100000000) % 10) * 10000)) + ((flag // 10000) % 10000)
+                flag = remap_flag(flag)
+                region = (600000 + (((flag // 100_000_000) % 10) * 10000)) + ((flag // 10000) % 10000)
             case 8:
                 region = flag // 10000
             case _:

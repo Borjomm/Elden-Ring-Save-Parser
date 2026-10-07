@@ -86,8 +86,9 @@ class MainWindow(QMainWindow):
         else:   
             self.status_bar.showMessage("Ready. Please select a save file.")
 
-    def _clear_tmp_directory(self):
+    def _clear_event_info(self):
         self.event_editor_tab.temp_db_init = False
+        self.event_editor_tab.clear_data()
         utils.regenerate_temp()
 
     def _make_menu(self):
@@ -107,7 +108,7 @@ class MainWindow(QMainWindow):
         item_tracker_toggle.setCheckable(True)
         item_tracker_toggle.setChecked(self.controller.settings.get_item_logging())
         event_tracker_save = utils.make_action(self, "Save logged events to database", self.event_editor_tab.save_session_to_temp_db)
-        event_tracker_regen_temp = utils.make_action(self, "Clear 'tmp' directory", self._clear_tmp_directory)
+        event_tracker_regen_temp = utils.make_action(self, "Clear all event info", self._clear_event_info)
         self.tool_menu.addAction(utils.make_action(self, "Print all items", self._print_all_items, "Ctrl+P"))
         self.tool_menu.addAction(event_tracker_toggle)
         self.tool_menu.addAction(item_tracker_toggle)

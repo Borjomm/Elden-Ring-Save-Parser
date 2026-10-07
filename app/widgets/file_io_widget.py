@@ -89,3 +89,4 @@ class FileIOWidget(QWidget):
     def toggle(self, enabled: bool):
         self.button.setEnabled(enabled)
         self.characters.setEnabled(enabled)
+        self.line.setEnabled(enabled)

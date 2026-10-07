@@ -7,7 +7,7 @@ from PySide6.QtCore import QObject, QTimer
 from app.parser.adapter import ParserError
 from app.parser.models import CCharacterData, CEventDelta
 
-_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare_new.dll")
+_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare_avx.dll")
 
 MAX_DELTAS = 10000
 

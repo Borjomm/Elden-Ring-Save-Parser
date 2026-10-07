@@ -6,7 +6,7 @@ from app.parser.models import CCharacterData, CEventDelta
 from app.data.containers import EventDelta, HasItemDelta
 from app.data.inventory_state import extract_item_id_set
 
-_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare_new.dll")
+_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare_avx.dll")
 
 MAX_DELTAS = 10000
 
@@ -29,11 +29,11 @@ class DeltaProvider():
 
     def _load_dll(self):
         self.lib = ctypes.CDLL(_DLL_PATH)
-        self.lib.get_deltas.argtypes = [ctypes.POINTER(CEventDelta), ctypes.c_uint32, ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t]
-        self.lib.get_deltas.restype = ctypes.c_int
+        self.lib.get_deltas_avx.argtypes = [ctypes.POINTER(CEventDelta), ctypes.c_uint32, ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t]
+        self.lib.get_deltas_avx.restype = ctypes.c_int
         
     def get_event_deltas(self):
-        count = self.lib.get_deltas(self.deltas, MAX_DELTAS, self._present.eventFlags, self._past.eventFlags, EVENT_POOL_SIZE)
+        count = self.lib.get_deltas_avx(self.deltas, MAX_DELTAS, self._present.eventFlags, self._past.eventFlags, EVENT_POOL_SIZE)
         return [EventDelta(self.deltas[i].event_id, self.deltas[i].changed_to) for i in range(count)]
     
     def get_item_deltas(self) -> list[HasItemDelta]:

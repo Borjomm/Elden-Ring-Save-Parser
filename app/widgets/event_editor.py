@@ -1,9 +1,10 @@
 from datetime import datetime
 from sqlite3 import Connection
+from typing import cast
 
-from PySide6.QtWidgets import QWidget, QTreeView, QVBoxLayout, QSplitter, QLineEdit, QLabel, QHBoxLayout, QFormLayout, QPushButton, QSizePolicy, QDialog, QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem, QMenu
+from PySide6.QtWidgets import QWidget, QTreeView, QVBoxLayout, QSplitter, QLineEdit, QLabel, QHBoxLayout, QFormLayout, QPushButton, QSizePolicy, QDialog, QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem, QMenu, QApplication, QCheckBox
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QPixmap, QImage, QColor, QAction
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt, QSortFilterProxyModel
 
 from app.core.save_controller import SaveController
 from app.data.containers import EventFlag, DisplayedDeltaChange
@@ -178,24 +179,45 @@ class EventEditor(QWidget):
         self.controller = controller
         self.id_to_items: dict[int, list[QStandardItem]] = {}
         self.screenshots: dict[int, str] = {}
+        self.auto_expand = True
         
         self.splitter = QSplitter(self)
-        self.event_search = QLineEdit(placeholderText="Enter event id...")
-        self.event_search.textChanged.connect(self._search_for_event)
+        self.live_event_search = QLineEdit(placeholderText="Search for live event...")
+        self.live_event_search.textChanged.connect(self._search_for_event)
         self.result_label = QLabel("")
         self.tree_view = QTreeView()
         self.model = QStandardItemModel()
-        self.tree_view.setModel(self.model)
+        self.proxy_model = EventProxyModel()
+        self.proxy_model.setSourceModel(self.model)
+        self.tree_view.setModel(self.proxy_model)
         self.tree_view.doubleClicked.connect(self.on_item_double_clicked)
+        self.tree_view.setHeaderHidden(True)
+        expand_btn = QPushButton("Expand All")
+        collapse_btn = QPushButton("Collapse All")
+        expand_btn.clicked.connect(self.tree_view.expandAll)
+        collapse_btn.clicked.connect(self.tree_view.collapseAll)
+        auto_expand_box = QCheckBox("Auto-expand")
+        auto_expand_box.setChecked(self.auto_expand)
+        auto_expand_box.toggled.connect(self._toggle_auto_expand)
+        self.event_search = QLineEdit(placeholderText="Filter events...")
+        self.event_search.textChanged.connect(self.proxy_model.change_text_filter)
+        self.event_search.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.event_search.customContextMenuRequested.connect(lambda: self.event_search.clear())
         self.detail_view = DetailEditor(self)
         
         left_widget = QWidget()
         top_layout = QHBoxLayout()
-        top_layout.addWidget(self.event_search, 1)
+        top_layout.addWidget(self.live_event_search, 1)
         top_layout.addWidget(self.result_label, 3)
         left_layout = QVBoxLayout(left_widget)
         left_layout.addLayout(top_layout)
         left_layout.addWidget(self.tree_view)
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addWidget(expand_btn)
+        bottom_layout.addWidget(collapse_btn)
+        bottom_layout.addWidget(auto_expand_box)
+        bottom_layout.addWidget(self.event_search)
+        left_layout.addLayout(bottom_layout)
 
 
         self.splitter.addWidget(left_widget)
@@ -232,7 +254,8 @@ class EventEditor(QWidget):
         msg = f"{str(event)} — {status_text}"
         lbl.setText(msg)
 
-
+    def _toggle_auto_expand(self, val: bool):
+        self.auto_expand = val
 
     def map_item(self, item: QStandardItem, event_id: int):
         if event_id not in self.id_to_items:
@@ -262,7 +285,15 @@ class EventEditor(QWidget):
             
             parent_item.appendRow(child)
             self.map_item(child, flag.event_id)
+        if self.auto_expand:
+            source_index = self.model.indexFromItem(parent_item)
+            proxy_index = self.proxy_model.mapFromSource(source_index)
+            self.tree_view.expand(proxy_index)
         self.dirty = True
+        scrollbar = self.tree_view.verticalScrollBar()
+        at_bottom = scrollbar.value() >= scrollbar.maximum()
+        if at_bottom:
+            self.tree_view.scrollToBottom()
 
     def submit_item(self, event: EventFlag):
         try:
@@ -298,14 +329,17 @@ class EventEditor(QWidget):
             item.setText(str(event))
         
 
-    def on_item_double_clicked(self, index):
-        item = self.model.itemFromIndex(index)
+    def on_item_double_clicked(self, proxy_index):
+        if not proxy_index.isValid():
+            return
+        source_index = self.proxy_model.mapToSource(proxy_index)
+        item = self.model.itemFromIndex(source_index)
         data = item.data(Qt.ItemDataRole.UserRole)
 
         # 1. Check if the clicked item is an EventFlag (child)
         if isinstance(data, EventFlag):
             # 2. Get the screenshot path from the parent (the Capture header)
-            parent_index = index.parent()
+            parent_index = source_index.parent()
             if parent_index.isValid():
                 parent_item = self.model.itemFromIndex(parent_index)
                 capture_data = parent_item.data(Qt.ItemDataRole.UserRole) # DisplayedDeltaChange
@@ -318,15 +352,23 @@ class EventEditor(QWidget):
             self.detail_view.unload()
 
     def on_context_menu(self, point):
-        index = self.tree_view.indexAt(point)
-        if not index.isValid():
+        proxy_index = self.tree_view.indexAt(point)
+        if not proxy_index.isValid():
             return
-        item = self.model.itemFromIndex(index)
+        source_index = self.proxy_model.mapToSource(proxy_index)
+        item = self.model.itemFromIndex(source_index)
         data = item.data(Qt.ItemDataRole.UserRole)
 
         menu = QMenu(self)
 
         if isinstance(data, EventFlag) or isinstance(data, DisplayedDeltaChange):
+            if isinstance(data, EventFlag):
+                action_copy_id = QAction("Copy event id")
+                action_copy_id.triggered.connect(lambda: QApplication.clipboard().setText(str(data.event_id)))
+                menu.addAction(action_copy_id)
+                action_filter_id = QAction("Filter by event id")
+                action_filter_id.triggered.connect(lambda: self.event_search.setText(str(data.event_id)))
+                menu.addAction(action_filter_id)
             flags = [data] if isinstance(data, EventFlag) else data.flags
             action_check_events = QAction("Compare with current events", self)
             action_check_events.triggered.connect(lambda: self._display_compare_events(flags))
@@ -340,6 +382,15 @@ class EventEditor(QWidget):
         data = [(flag, character.get_event_state(flag.event_id)) for flag in flag_list]
         dialog = StateDetailsDialog("Event comparison", data, self)
         dialog.exec()
+
+    def clear_data(self):
+        self.model.clear()
+        self.detail_view.unload()
+        self.id_to_items = {}
+        self.screenshots = {}
+        self.temp_db_init = False
+        self.dirty = True
+
 
         
 
@@ -391,7 +442,6 @@ class EventEditor(QWidget):
             return
 
         # 2. Initialize the DB if needed
-        tracker = self.controller.event_tracker
         if not self.temp_db_init:
             init_temp_db(self.temp_db_path)
             self.temp_db_init = True
@@ -401,3 +451,31 @@ class EventEditor(QWidget):
         save_rows(self.temp_db_path, screenshots, events, regions)
         
         print(f"Session saved: {len(events)} flags logged.")
+
+class EventProxyModel(QSortFilterProxyModel):
+    def __init__(self):
+        super().__init__()
+        self.search_text = ""
+
+    def change_text_filter(self, s: str):
+        self.search_text = s
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex | QPersistentModelIndex) -> bool:
+        if not self.search_text:
+            return True
+        model = cast(QStandardItemModel, self.sourceModel())
+        index = model.index(source_row, 0, source_parent)
+        item = model.itemFromIndex(index)
+        data = item.data(Qt.ItemDataRole.UserRole)
+
+        if isinstance(data, DisplayedDeltaChange):
+            for i in range(item.rowCount()):
+                if self.filterAcceptsRow(i, index):
+                    return True
+            return False
+        
+        elif isinstance(data, EventFlag):
+            return self.search_text.lower() in str(data).lower()
+        
+        return True
