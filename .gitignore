@@ -6,7 +6,6 @@ tmp/
 Elden Ring Great Archive/*
 !Elden Ring Great Archive/public
 
-
 .venv/
 .env
 
@@ -19,7 +18,7 @@ dist/
 .vscode/
 .idea/
 
-
+Flags.txt
 unite.ps1
 output.txt
 test_wiki.db
