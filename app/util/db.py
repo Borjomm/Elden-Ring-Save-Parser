@@ -33,6 +33,18 @@ def init_temp_db(db_path: str) -> None:
             """)
 
             conn.execute("""
+                DELETE FROM events
+                WHERE log_id NOT IN (
+                    SELECT MAX(log_id) FROM events
+                    GROUP BY screenshot_id, event_id
+                )
+            """)
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_events_capture
+                ON events (screenshot_id, event_id)
+            """)
+
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS regions (
                     region_id INTEGER PRIMARY KEY,
                     description TEXT NOT NULL
@@ -59,8 +71,13 @@ def save_rows(
             """, rows_screenshots)
 
             conn.executemany("""
-                INSERT OR IGNORE INTO events (event_id, val, description, category, tags, screenshot_id)
+                INSERT INTO events (event_id, val, description, category, tags, screenshot_id)
                 VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (screenshot_id, event_id) DO UPDATE SET
+                    val = excluded.val,
+                    description = excluded.description,
+                    category = excluded.category,
+                    tags = excluded.tags
             """, rows_events)
 
             conn.executemany("""

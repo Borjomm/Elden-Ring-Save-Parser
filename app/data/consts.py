@@ -42,7 +42,7 @@ REGION_FLAGS = [
 (200, 300, "Character Flag (No reset)"),
 (2200, 300, "Character Flag (Reset)"),
 (500, 200, "Object Flag (No reset)"),
-(1500, 200, "Object Flag (No reset"),
+(1500, 200, "Object Flag (No reset)"),
 (2500, 200, "Object Flag (Reset)"),
 (8500, 200, "Object Action Flag"),
 (700, 100, "Talk Flag (No reset)"),
