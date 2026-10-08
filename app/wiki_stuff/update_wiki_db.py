@@ -78,14 +78,11 @@ INSERT INTO wiki_entries (filepath, name, markdown, hidden_markdown, conditions,
         return (save_path.as_posix(), path.stem, current_markdown, hidden_markdown, json.dumps(event_dict), ",".join(unlock_ids))
     
 class UpdateUI(QDialog):
-    def __init__(self):
+    def __init__(self, container: WikiSettingsContainer):
         super().__init__()
         self.setWindowTitle("Database Compiler")
         self.resize(600, 150)
         self.settings = SettingsRepository()
-        container = self.settings.get_or_prompt_wiki_settings()
-        if not container:
-            sys.exit(1)
         self.container = container
         change_settings_button = QPushButton("Change settings...")
         change_settings_button.clicked.connect(self.change_container)
@@ -149,7 +146,7 @@ def main():
     container = settings.get_or_prompt_wiki_settings()
     if not container:
         return
-    parser = UpdateUI()
+    parser = UpdateUI(container)
     parser.exec()
             
 

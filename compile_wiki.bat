@@ -1,9 +1,6 @@
 @echo off
-cd /d "%~dp0"
-if not exist ".venv" (
-    echo Virtual environment not found. Running setup...
-    python install.py
-)
+call ensure_env.bat || exit /b 1
+
 echo Starting Compilation...
 :: Replace database argument with "app/gamedata.db" to update the main app
 ".venv\Scripts\python.exe" -m app.wiki_stuff.update_wiki_db
