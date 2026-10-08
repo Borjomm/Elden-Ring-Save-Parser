@@ -1,17 +1,9 @@
-import ctypes
-import os
 from typing import Callable
 
 from PySide6.QtCore import QObject, QTimer
 
-from app.parser.adapter import ParserError, ParserAdapter
-from app.parser.models import CCharacterData
+from app.parser.adapter import ParserAdapter
 from app.parser.wrapper import CharacterData
-
-
-_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare_avx.dll")
-
-MAX_DELTAS = 10000
 
 
 class LiveWatcherService(QObject):

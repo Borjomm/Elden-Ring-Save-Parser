@@ -62,7 +62,7 @@ class SaveController:
                 major = force_major or new_status != state.memory_view_status
                 if major:
                     print("[MEMORY VIEWER]", "LOADED IN GAME" if memory_status else "LOADED IN MENU")
-            elif state.data_source == DataSource.SAVE_FILE and state.current_path and state.current_slot:
+            elif state.data_source == DataSource.SAVE_FILE and state.current_path and state.current_slot is not None:
                 updated_data = self._reload_with_retry(state.current_path, state.current_slot)
                 major = force_major
                 new_status = MemoryViewStatus.MENU
@@ -95,9 +95,11 @@ class SaveController:
                 
             self.store.update_state(update_type=UpdateType.NONE)
         except ParserError as e:
+
             self.store.update_state(
                 last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE, attach_failed=True, memory_view_status=MemoryViewStatus.NONE
             )
+
 
 
     def open_new_file(self, filepath: str, slot: int = 0, startup: bool = False):
@@ -132,6 +134,8 @@ class SaveController:
             self.select_character_slot(slot, startup)
 
         except ParserError as e:
+            self.live_watcher.stop()
+            self.file_watcher.stop()
             self.store.update_state(last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE)
 
     def select_character_slot(self, index: int, startup: bool = False):
@@ -167,7 +171,7 @@ class SaveController:
             return
 
         print(f"Auto-reload triggered for: {state.current_path}")
-        QTimer.singleShot(0, lambda: self._reload_with_retry(state.current_path, state.current_slot)) # type: ignore
+        QTimer.singleShot(0, self.automatic_parse)
         
 
     def _reload_with_retry(self, path: str, slot: int, retries=5) -> CharacterData:
