@@ -1,14 +1,7 @@
-import ctypes
-import os
-
-from app.data.consts import EVENT_POOL_SIZE
-from app.parser.models import CCharacterData, CEventDelta
+from app.parser.models import CEventDelta
 from app.data.containers import EventDelta, HasItemDelta
 from app.data.inventory_state import extract_item_id_set
 from app.parser.adapter import ParserAdapter
-
-
-_DLL_PATH =  os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare_avx.dll")
 
 MAX_DELTAS = 10000
 
