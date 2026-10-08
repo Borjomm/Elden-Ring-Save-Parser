@@ -95,7 +95,8 @@ class SaveController:
                 
             self.store.update_state(update_type=UpdateType.NONE)
         except ParserError as e:
-
+            self.live_watcher.stop()
+            self.file_watcher.stop()
             self.store.update_state(
                 last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE, attach_failed=True, memory_view_status=MemoryViewStatus.NONE
             )
@@ -134,8 +135,6 @@ class SaveController:
             self.select_character_slot(slot, startup)
 
         except ParserError as e:
-            self.live_watcher.stop()
-            self.file_watcher.stop()
             self.store.update_state(last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE)
 
     def select_character_slot(self, index: int, startup: bool = False):

@@ -12,6 +12,7 @@ class LiveWatcherService(QObject):
     def __init__(self, lib: ParserAdapter):
         super().__init__()
         self.lib = lib
+        self.callback = None
         self.timer = QTimer()
 
     def check_for_changes(self) -> CharacterData:
@@ -19,6 +20,7 @@ class LiveWatcherService(QObject):
 
     def start(self, callback: Callable):
         if self.lib.init_live():
+            self.callback = callback
             self.timer.timeout.connect(callback)
             self.timer.start(500)
             return True
@@ -26,4 +28,7 @@ class LiveWatcherService(QObject):
 
     def stop(self):
         self.timer.stop()
+        if self.callback is not None:
+            self.timer.timeout.disconnect(self.callback)
+            self.callback = None
         self.lib.close_live()

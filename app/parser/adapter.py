@@ -1,13 +1,9 @@
 import ctypes
 import threading
 
-from app.parser.models import CCharacterData
-from app.parser.wrapper import CharacterData, CharacterSelection
-from app.data.consts import LIVE_MEMORY_DLL_PATH, SAVEFILE_DLL_PATH
-
-from app.data.consts import EVENT_POOL_SIZE
 from app.parser.models import CCharacterData, CEventDelta
-from app.parser.wrapper import CharacterData
+from app.parser.wrapper import CharacterData, CharacterSelection
+from app.data.consts import LIVE_MEMORY_DLL_PATH, SAVEFILE_DLL_PATH, EVENT_POOL_SIZE
 
 class ParserError(Exception):
     ...
@@ -87,19 +83,21 @@ class ParserAdapter:
             return self.update_cache(CCharacterData.from_buffer_copy(self.__temp))
 
     def init_live(self) -> bool:
-        self.live_initialized = self._live_lib.init()
-        return self.live_initialized
+        with self._lock:
+            if not self.live_initialized:
+                self.live_initialized = self._live_lib.init()
+            return self.live_initialized
 
     def close_live(self) -> None:
-        self._live_lib.close()
-        self.live_initialized = False
+        with self._lock:
+            if self.live_initialized:
+                self._live_lib.close()
+                self.live_initialized = False
 
     def parse_character_data_live(self) -> CharacterData:
         with self._lock:
-            if not self.live_initialized:
-                result = self.init_live()
-                if not result:
-                    raise ParserError(f"Unable to initialize {LIVE_MEMORY_DLL_PATH}")
+            if not self.init_live():
+                raise ParserError(f"Unable to initialize {LIVE_MEMORY_DLL_PATH}")
             
             success = self._live_lib.parse_character_data(ctypes.byref(self.__temp))
             if success:
