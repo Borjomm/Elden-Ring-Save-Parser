@@ -67,7 +67,7 @@ class SaveController:
                 major = force_major
                 new_status = MemoryViewStatus.MENU
             else:
-                raise RuntimeError("Tried parsing without a data source!")
+                return
             if major:
 
                 self.store.update_state(
@@ -93,7 +93,7 @@ class SaveController:
                     update_type=UpdateType.MINOR
                 )
                 
-            self.store.update_state(update_type=UpdateType.NONE)
+            self.store.update_state(update_type=UpdateType.NONE, last_error = None)
         except ParserError as e:
             self.live_watcher.stop()
             self.file_watcher.stop()
@@ -121,20 +121,19 @@ class SaveController:
                 current_slot=None,
                 current_character=None,
                 recent_files=self.settings.get_recent_list(),
-                update_type = UpdateType.NONE,
-                data_source = DataSource.SAVE_FILE,
-                memory_view_status=MemoryViewStatus.NONE
+                update_type = UpdateType.NONE
             )
             
             # 4. Update the OS watcher to point to the new file
-            self.file_watcher.set_path(filepath)
-            self.file_watcher.start()
             
             # 5. Persist the path to settings
             self.settings.save_session(filepath, 0)
             self.select_character_slot(slot, startup)
 
+            self.file_watcher.set_path(filepath)
+
         except ParserError as e:
+
             self.store.update_state(last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE)
 
     def select_character_slot(self, index: int, startup: bool = False):
@@ -150,7 +149,11 @@ class SaveController:
                 current_slot=index,
                 previous_character=None,
                 current_character=data,
-                update_type = UpdateType.STARTUP if startup else UpdateType.MAJOR
+                update_type = UpdateType.STARTUP if startup else UpdateType.MAJOR,
+                data_source = DataSource.SAVE_FILE,
+                memory_view_status = MemoryViewStatus.NONE,
+                attach_failed = False,
+                last_error = None
             )
             
             # Persist choice
@@ -159,7 +162,7 @@ class SaveController:
             self.store.update_state(update_type = UpdateType.NONE)
 
         except ParserError as e:
-            self.store.update_state(last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE, attach_failed = True)
+            self.store.update_state(last_error=str(e), update_type = UpdateType.NONE, data_source = DataSource.NONE)
 
     def _on_file_modified(self):
         """Trigger: The FileWatcher detected a change on disk."""
